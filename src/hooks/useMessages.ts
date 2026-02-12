@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { Message } from "@/app/api/messages/route"; // basic type sharing
+import { Message } from "@/lib/store";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
