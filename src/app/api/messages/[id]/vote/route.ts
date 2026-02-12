@@ -13,7 +13,7 @@ export async function POST(
 
         const { id } = await params;
         const body = await request.json();
-        const { action } = body; // 'like' or 'dislike'
+        const { action, unlimited } = body; // 'like' or 'dislike', unlimited flag
 
         if (!['like', 'dislike'].includes(action)) {
             return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400 });
@@ -27,7 +27,23 @@ export async function POST(
         const message = messages[messageIndex];
         const userId = session.user.email || session.user.name || "anonymous";
 
-        // Remove existing votes
+        // Bypass checks if unlimited
+        if (unlimited === true) {
+            if (action === 'like') {
+                message.likes++;
+                if (!message.likedBy.includes(userId)) {
+                    message.likedBy.push(userId);
+                }
+            } else {
+                message.dislikes++;
+                if (!message.dislikedBy.includes(userId)) {
+                    message.dislikedBy.push(userId);
+                }
+            }
+            return new Response(JSON.stringify(message), { status: 200 });
+        }
+
+        // Remove existing votes (Strict 1-vote mode)
         const likedIndex = message.likedBy.indexOf(userId);
         if (likedIndex > -1) {
             message.likedBy.splice(likedIndex, 1);

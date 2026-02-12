@@ -30,7 +30,7 @@ export default function ProfilePage() {
 
     return (
         <div className="min-h-screen p-4 flex flex-col pointer-events-none">
-            <div className="w-full max-w-2xl mx-auto mt-10 pointer-events-auto">
+            <div className="w-full max-w-lg mx-auto mt-10 pointer-events-auto">
                 <button
                     onClick={() => router.back()}
                     className="mb-6 flex items-center px-4 py-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-all backdrop-blur-md border border-white/10"

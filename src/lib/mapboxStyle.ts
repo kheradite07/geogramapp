@@ -1,6 +1,6 @@
 // Brand Colors
 const COLORS = {
-    background: "#050011", // Very dark purple (almost black)
+    background: "#1a0033", // Very dark purple (almost black)
     land: "#240046",       // Dark purple
     water: "#050011",      // Match background
     roads: "#9d4edd",      // Bright vivid purple for high contrast

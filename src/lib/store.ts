@@ -15,3 +15,7 @@ export type Message = {
 
 // Singleton in-memory store
 export const messages: Message[] = [];
+
+export function clearAllMessages(): void {
+    messages.length = 0;
+}

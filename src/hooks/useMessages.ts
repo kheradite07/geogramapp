@@ -20,10 +20,29 @@ export function useMessages() {
         }
     };
 
+    const voteMessage = async (id: string, action: 'like' | 'dislike', unlimited: boolean = false) => {
+        // We trigger a local revalidation after the vote
+        const res = await fetch(`/api/messages/${id}/vote`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action, unlimited }),
+        });
+
+        if (res.ok) {
+            mutate(); // Revalidate from server
+        } else {
+            // If message not found (404), it might have been deleted/expired. Revalidate to remove it from UI.
+            if (res.status === 404) {
+                mutate();
+            }
+        }
+    };
+
     return {
         messages: data || [],
         isLoading,
         isError: error,
         sendMessage,
+        voteMessage,
     };
 }

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
         const newMessage: Message = {
             id: Date.now().toString(),
-            text: text.slice(0, 140), // Limit length
+            text: text.slice(0, 50), // Limit length to 50 chars
             lat,
             lng,
             timestamp: Date.now(),

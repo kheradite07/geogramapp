@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useMessages } from "@/hooks/useMessages";
 import { useLocation } from "@/hooks/useLocation";
 import { useSession, signIn } from "next-auth/react";
+import { useConfig } from "@/context/ConfigContext";
 
 export default function InputBar() {
     const [message, setMessage] = useState("");
@@ -14,9 +15,11 @@ export default function InputBar() {
     const { location } = useLocation();
     const { data: session } = useSession();
 
+    const { maxChars } = useConfig();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!message.trim() || isSending || !location) return;
+        if (!message.trim() || isSending || !location || message.length > maxChars) return;
 
         setIsSending(true);
         await sendMessage(message, location.lat, location.lng);
@@ -132,6 +135,7 @@ export default function InputBar() {
                             onBlur={() => setIsFocused(false)}
                             placeholder={location ? "Drop your message on the map..." : "Waiting for location..."}
                             disabled={!location}
+                            maxLength={maxChars}
                             style={{
                                 position: 'relative',
                                 zIndex: 10,
@@ -150,7 +154,7 @@ export default function InputBar() {
 
                         <button
                             type="submit"
-                            disabled={!message.trim() || isSending || !location}
+                            disabled={!message.trim() || isSending || !location || message.length > maxChars}
                             style={{
                                 position: 'relative',
                                 zIndex: 10,
@@ -161,14 +165,14 @@ export default function InputBar() {
                                 border: 'none',
                                 boxShadow: '0 10px 15px -3px rgba(123, 44, 191, 0.3)',
                                 transition: 'all 0.2s',
-                                cursor: !message.trim() || isSending || !location ? 'not-allowed' : 'pointer',
-                                ...(((!message.trim() || isSending || !location)) && {
+                                cursor: !message.trim() || isSending || !location || message.length > maxChars ? 'not-allowed' : 'pointer',
+                                ...(((!message.trim() || isSending || !location || message.length > maxChars)) && {
                                     background: 'linear-gradient(to bottom right, #3c096c, #240046)',
                                     opacity: 0.5
                                 })
                             }}
                             onMouseEnter={(e) => {
-                                if (message.trim() && location && !isSending) {
+                                if (message.trim() && location && !isSending && message.length <= maxChars) {
                                     e.currentTarget.style.transform = 'scale(1.05)';
                                     e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(157, 78, 221, 0.4)';
                                 }
@@ -178,12 +182,12 @@ export default function InputBar() {
                                 e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(123, 44, 191, 0.3)';
                             }}
                             onMouseDown={(e) => {
-                                if (message.trim() && location && !isSending) {
+                                if (message.trim() && location && !isSending && message.length <= maxChars) {
                                     e.currentTarget.style.transform = 'scale(0.95)';
                                 }
                             }}
                             onMouseUp={(e) => {
-                                if (message.trim() && location && !isSending) {
+                                if (message.trim() && location && !isSending && message.length <= maxChars) {
                                     e.currentTarget.style.transform = 'scale(1.05)';
                                 }
                             }}
@@ -200,17 +204,15 @@ export default function InputBar() {
                 )}
 
                 {/* Character count */}
-                {message.length > 50 && (
-                    <div style={{
-                        textAlign: 'right',
-                        marginTop: '8px',
-                        fontSize: '12px',
-                        color: 'rgba(199, 125, 255, 0.6)',
-                        fontWeight: 500
-                    }}>
-                        {message.length} characters
-                    </div>
-                )}
+                <div style={{
+                    textAlign: 'right',
+                    marginTop: '8px',
+                    fontSize: '12px',
+                    color: message.length > maxChars ? 'rgba(255, 99, 99, 0.8)' : 'rgba(199, 125, 255, 0.6)',
+                    fontWeight: 500
+                }}>
+                    {message.length} / {maxChars} characters
+                </div>
             </div>
         </div>
     );
