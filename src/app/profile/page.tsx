@@ -1,12 +1,14 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, LogOut, User as UserIcon, MapPin } from "lucide-react";
 import useSWR from "swr";
-import { useUser } from "@/hooks/useUser"; // To get own full details if needed
+import { useUser } from "@/hooks/useUser";
+import { Suspense } from "react";
+import { getApiUrl } from "@/lib/api";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => fetch(getApiUrl(url), { credentials: 'include' }).then((res) => res.json());
 
 // Helper for relative time
 const formatRelativeTime = (timestamp: number) => {
@@ -24,33 +26,30 @@ const formatRelativeTime = (timestamp: number) => {
     return `${days}d ago`;
 };
 
-export default function ProfilePage() {
+function ProfileContent() {
     const { data: session } = useSession();
-    const params = useParams();
+    const searchParams = useSearchParams();
     const router = useRouter();
-    const userId = params.userId as string;
+    // Get ID from query param (?id=...)
+    const userId = searchParams.get('id');
 
-    // Determine if viewing own profile
-    // We check against session email (which was used as ID before) OR the new CUID if session has it
-    // But since params.userId coming from Map is likely CUID, and session.user.id (from next-auth adapter) handles it...
-    // Let's rely on API response or session comparison.
-
-    // Actually, `useUser` hook fetches "me" (api/users/sync) which returns the full DB user object.
+    // Currently logged-in user details
     const { user: currentUser } = useUser();
 
-    const isOwnProfile = currentUser?.id === userId || session?.user?.email === userId;
+    // Determine if viewing own profile
+    const isOwnProfile = !userId || currentUser?.id === userId || session?.user?.email === userId;
 
-    // Fetch public profile if not own (or even if own, to get consistent data structure)
-    // If it is own profile, we can use `currentUser` from `useUser` hook which is already loaded usually.
+    // If no userId and dealing with own profile, use current user ID if available
+    const effectiveUserId = userId || currentUser?.id;
 
     const { data: publicProfile, error, isLoading } = useSWR(
-        isOwnProfile ? null : `/api/users/${userId}`,
+        isOwnProfile || !effectiveUserId ? null : `/api/users/${effectiveUserId}`,
         fetcher
     );
 
     // Fetch user's messages
     const { data: userMessages, isLoading: messagesLoading } = useSWR(
-        `/api/users/${userId}/messages`,
+        effectiveUserId ? `/api/users/${effectiveUserId}/messages` : null,
         fetcher
     );
 
@@ -61,6 +60,7 @@ export default function ProfilePage() {
     }
 
     if (!displayUser || (error && !isOwnProfile)) {
+        if (!effectiveUserId && isLoading) return <div className="p-8 text-white pointer-events-auto flex justify-center mt-20">Loading...</div>;
         return <div className="p-8 text-white pointer-events-auto flex justify-center mt-20">User not found</div>;
     }
 
@@ -102,7 +102,6 @@ export default function ProfilePage() {
                             @{displayUser.username || (displayUser.name ? displayUser.name.replace(/\s+/g, '').toLowerCase() : "user")}
                         </p>
 
-                        {/* STRICT PRIVACY: Only show email if it's own profile AND available in session */}
                         {isOwnProfile && session?.user?.email && (
                             <p className="text-gray-400 text-sm mb-6">{session.user.email}</p>
                         )}
@@ -162,5 +161,13 @@ export default function ProfilePage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ProfilePage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-white flex justify-center mt-20">Loading...</div>}>
+            <ProfileContent />
+        </Suspense>
     );
 }

@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
+const isMobile = process.env.MOBILE_BUILD === 'true';
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: isMobile ? 'export' : undefined,
+  images: {
+    unoptimized: true
+  }
 };
 
 export default nextConfig;

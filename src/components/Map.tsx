@@ -1091,7 +1091,7 @@ export default function MapComponent() {
                         {/* User Header - Compact */}
                         <div
                             className="flex items-center space-x-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity pr-6"
-                            onClick={() => selectedMessage.userId && router.push(`/profile/${selectedMessage.userId}`)}
+                            onClick={() => selectedMessage.userId && router.push(`/profile?id=${selectedMessage.userId}`)}
                         >
                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full p-0.5 bg-gradient-to-tr from-purple-500 to-cyan-500 flex-shrink-0">
                                 {selectedMessage.userImage ? (

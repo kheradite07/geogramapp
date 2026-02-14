@@ -1,7 +1,9 @@
 import useSWR from "swr";
 import { Message } from "@/lib/store";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { getApiUrl } from "@/lib/api";
+
+const fetcher = (url: string) => fetch(getApiUrl(url), { credentials: 'include' }).then((res) => res.json());
 
 export function useMessages() {
     const { data, error, isLoading, mutate } = useSWR<Message[]>("/api/messages", fetcher, {
@@ -13,9 +15,10 @@ export function useMessages() {
     });
 
     const sendMessage = async (text: string, lat: number, lng: number, visibility: 'public' | 'friends' = 'public') => {
-        const res = await fetch("/api/messages", {
+        const res = await fetch(getApiUrl("/api/messages"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: 'include',
             body: JSON.stringify({ text, lat, lng, visibility }),
         });
 
@@ -26,9 +29,10 @@ export function useMessages() {
 
     const voteMessage = async (id: string, action: 'like' | 'dislike', unlimited: boolean = false) => {
         // We trigger a local revalidation after the vote
-        const res = await fetch(`/api/messages/${id}/vote`, {
+        const res = await fetch(getApiUrl(`/api/messages/${id}/vote`), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: 'include',
             body: JSON.stringify({ action, unlimited }),
         });
 

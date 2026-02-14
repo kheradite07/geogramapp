@@ -5,11 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "mobile:build": "node scripts/build-mobile.js",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/ios": "^6.2.1",
     "@prisma/client": "^5.22.0",
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "^2.1.1",
