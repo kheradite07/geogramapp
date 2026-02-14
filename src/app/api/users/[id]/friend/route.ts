@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // If targetUserId looks like an email, we might need to find the user first. 
     // But since `search` returns `id` from Prisma, it should be the CUID.
 
-    const { action } = await req.json(); // 'send', 'accept', 'reject', 'remove'
+    const { action } = await req.json(); // 'send', 'accept', 'reject', 'remove', 'cancel'
 
     try {
         // Ensure both users exist
@@ -87,6 +87,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                 break;
 
             case 'reject':
+            case 'cancel':
             case 'remove':
                 // Find any relationship
                 const relation = await prisma.friendship.findFirst({

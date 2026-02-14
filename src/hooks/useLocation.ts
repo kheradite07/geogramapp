@@ -37,7 +37,7 @@ export function useLocation() {
         const options: PositionOptions = {
             enableHighAccuracy: true,  // Request GPS instead of WiFi/cell tower
             timeout: 15000,            // 15 seconds timeout (iOS can be slow)
-            maximumAge: 0              // Don't use cached position
+            maximumAge: 300000         // Cache location for 5 minutes (300000ms)
         };
 
         const handleSuccess = (position: GeolocationPosition) => {

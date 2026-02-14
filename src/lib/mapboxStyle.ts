@@ -9,7 +9,7 @@ const COLORS = {
 
 export const customMapStyle = {
     version: 8,
-    name: "GeoPulse Minimal",
+    name: "Geogram Minimal",
     glyphs: "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
     metadata: {},
     sources: {

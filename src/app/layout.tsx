@@ -20,6 +20,11 @@ import { UIProvider } from "@/context/UIContext";
 import DebugPanel from "@/components/DebugPanel";
 import OnboardingModal from "@/components/OnboardingModal";
 
+export const metadata: Metadata = {
+  title: "geogram",
+  description: "Connect with friends on the map",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

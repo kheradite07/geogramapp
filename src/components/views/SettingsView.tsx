@@ -1,8 +1,9 @@
 "use client";
 
 import { useUser } from "@/hooks/useUser";
-import { User, Shield, LogOut } from "lucide-react";
+import { User, Shield, LogOut, Settings } from "lucide-react";
 import { signOut } from "next-auth/react";
+import AuthPrompt from "@/components/AuthPrompt";
 
 export default function SettingsView() {
     const { user, toggleAnonymity, toggleLocationPrivacy, isLoading } = useUser();
@@ -12,7 +13,15 @@ export default function SettingsView() {
     }
 
     if (!user) {
-        return <div className="text-white text-center p-8">Please sign in to access settings.</div>;
+        return (
+            <div className="w-full h-full flex flex-col p-4 pt-20 pointer-events-auto bg-black/80 backdrop-blur-md">
+                <AuthPrompt
+                    icon={Settings}
+                    title="Manage Your Experience"
+                    description="Sign in to customize your profile, privacy settings, and map preferences."
+                />
+            </div>
+        );
     }
 
     return (

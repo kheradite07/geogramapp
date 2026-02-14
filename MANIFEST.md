@@ -99,7 +99,7 @@ Messages appear on the map at the exact location they were sent from.
 - **Bundler:** Turbopack (Dev), Webpack (Prod).
 - **Map Provider:** Mapbox GL JS (via react-map-gl).
 - **Backend:** Custom Node.js (Next.js API Routes).
-- **Database:** SQLite (Relational, file-based for MVP).
+- **Database:** PostgreSQL (Supabase).
 - **ORM:** Prisma (Type-safe database access).
 - **Styling:** Tailwind CSS (or custom CSS modules as per preference).
 
@@ -111,6 +111,23 @@ Messages appear on the map at the exact location they were sent from.
 - `src/styles`: Global styles and CSS variables.
 - `src/types`: TypeScript type definitions and interfaces.
 - `public`: Static assets (images, icons).
+
+## Deployment & Infrastructure
+
+### Database (Supabase + Prisma)
+- **Provider:** PostgreSQL (Supabase)
+- **Connection Pooling:** We use Supabase Transaction Pooler (Port 6543) for serverless compatibility.
+- **Critical Configuration:**
+    - `DATABASE_URL` (in Vercel/Env) **MUST** end with `?pgbouncer=true`.
+    - `DIRECT_URL` (in Vercel/Env) points to Session Pooler (Port 5432) for migrations.
+    - **Why?** Vercel Serverless functions exhaust connections quickly. The transaction pooler manages this but requires `?pgbouncer=true` to support prepared statements properly with Prisma.
+
+### Mobile Build (Capacitor)
+- **Framework:** Capacitor (iOS & Android).
+- **Build Command:** `npm run mobile:build`
+    - **Note:** This script temporarily hides `src/app/api` to allow `next build` (Static Export) to succeed, as API routes are not supported in static exports.
+- **Routing:** All mobile routes must use **Query Parameters** (e.g., `/profile?id=123`) instead of Dynamic Routes (`/profile/123`), as dynamic routes require server-side generation which is unavailable in static export.
+- **Authentication:** Mobile requests explicitly include `credentials: 'include'` to share session cookies with the backend.
 
 ## Known Issues & Best Practices
 

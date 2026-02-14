@@ -7,7 +7,9 @@ export default function LoginPage() {
         <div className="flex flex-col items-center justify-center min-h-screen p-4 pointer-events-none data-[overlay]:bg-transparent">
             <div className="w-full max-w-md p-8 space-y-8 rounded-2xl shadow-2xl backdrop-blur-xl border border-white/10 bg-black/40 pointer-events-auto transition-all hover:bg-black/50">
                 <div className="text-center">
-                    <h2 className="text-3xl font-bold tracking-tight text-white drop-shadow-lg">Welcome to GeoPulse</h2>
+                    <h2 className="text-3xl font-bold tracking-tight text-white drop-shadow-lg">
+                        Welcome to <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">geogram</span>
+                    </h2>
                     <p className="mt-2 text-sm text-gray-200">Sign in to start posting and viewing profiles</p>
                 </div>
 

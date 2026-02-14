@@ -21,6 +21,11 @@ export function useUser() {
     });
 
     const toggleAnonymity = async (isAnonymous: boolean) => {
+        // Optimistic update
+        if (user) {
+            mutate({ ...user, isAnonymous }, false);
+        }
+
         const res = await fetch(getApiUrl("/api/users/me"), {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -30,10 +35,18 @@ export function useUser() {
 
         if (res.ok) {
             mutate();
+        } else {
+            // Revert on error
+            mutate();
         }
     };
 
     const toggleLocationPrivacy = async (hideLocation: boolean) => {
+        // Optimistic update
+        if (user) {
+            mutate({ ...user, hideLocationFromFriends: hideLocation }, false);
+        }
+
         const res = await fetch(getApiUrl("/api/users/privacy"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -42,6 +55,9 @@ export function useUser() {
         });
 
         if (res.ok) {
+            mutate();
+        } else {
+            // Revert on error
             mutate();
         }
     };
@@ -52,7 +68,7 @@ export function useUser() {
         return res.json();
     };
 
-    const handleFriendRequest = async (targetUserId: string, action: 'send' | 'accept' | 'reject' | 'remove') => {
+    const handleFriendRequest = async (targetUserId: string, action: 'send' | 'accept' | 'reject' | 'remove' | 'cancel') => {
         // Optimistic update could be added here
         const res = await fetch(getApiUrl(`/api/users/${encodeURIComponent(targetUserId)}/friend`), {
             method: "POST",
