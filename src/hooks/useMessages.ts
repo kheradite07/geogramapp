@@ -43,7 +43,7 @@ export function useMessages() {
     };
 
     return {
-        messages: data || [],
+        messages: Array.isArray(data) ? data : [],
         isLoading,
         isError: error,
         sendMessage,

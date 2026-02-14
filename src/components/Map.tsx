@@ -570,6 +570,9 @@ export default function MapComponent() {
         const now = Date.now();
         const expirationMs = expirationHours * 60 * 60 * 1000;
 
+        // Safety check: Ensure messages is an array before filtering
+        if (!Array.isArray(messages)) return [];
+
         // 1. Filter by expiration
         const activeMessages = messages.filter(msg => {
             const age = now - msg.timestamp;
