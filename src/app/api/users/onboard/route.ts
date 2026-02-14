@@ -38,8 +38,12 @@ export async function POST(request: Request) {
                 isOnboarded: true
             },
             include: {
-                friendsRequested: true,
-                friendsReceived: true
+                friendsRequested: {
+                    include: { receiver: true }
+                },
+                friendsReceived: {
+                    include: { requester: true }
+                }
             }
         });
 
