@@ -98,7 +98,9 @@ Messages appear on the map at the exact location they were sent from.
 - **Modules:** Next.js (App Router), React, TypeScript.
 - **Bundler:** Turbopack (Dev), Webpack (Prod).
 - **Map Provider:** Mapbox GL JS (via react-map-gl).
-- **Backend:** Custom Node.js (Express/Fastify).
+- **Backend:** Custom Node.js (Next.js API Routes).
+- **Database:** SQLite (Relational, file-based for MVP).
+- **ORM:** Prisma (Type-safe database access).
 - **Styling:** Tailwind CSS (or custom CSS modules as per preference).
 
 ## Project Structure
@@ -109,3 +111,13 @@ Messages appear on the map at the exact location they were sent from.
 - `src/styles`: Global styles and CSS variables.
 - `src/types`: TypeScript type definitions and interfaces.
 - `public`: Static assets (images, icons).
+
+## Known Issues & Best Practices
+
+### Mapbox Marker Animations ("Flying Dots")
+**Problem:** Markers (dots/bubbles) appear to "fly" from the top-left corner (0,0) or incorrect positions when they are first added to the map.
+**Cause:** Global CSS transitions targeting `.mapboxgl-marker` (e.g., in `globals.css`) cause the initial position assignment to be animated.
+**Solution:** 
+- **DO NOT** apply global transitions to `.mapboxgl-marker`. 
+- Use specific classes for hover effects (e.g., `transition-transform` on an inner div).
+- Ensure new markers are added with stable keys to prevent React from reusing DOM elements for distant locations.

@@ -5,14 +5,18 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useMessages() {
     const { data, error, isLoading, mutate } = useSWR<Message[]>("/api/messages", fetcher, {
-        refreshInterval: 5000, // Poll every 5s for MVP
+        refreshInterval: 10000, // Poll every 10s (reduced from 5s)
+        revalidateOnFocus: true,
+        revalidateOnReconnect: true,
+        refreshWhenHidden: false,
+        refreshWhenOffline: false
     });
 
-    const sendMessage = async (text: string, lat: number, lng: number) => {
+    const sendMessage = async (text: string, lat: number, lng: number, visibility: 'public' | 'friends' = 'public') => {
         const res = await fetch("/api/messages", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, lat, lng }),
+            body: JSON.stringify({ text, lat, lng, visibility }),
         });
 
         if (res.ok) {

@@ -55,6 +55,23 @@ Deliverables:
 - Fully usable map + text posting loop
 - Stable real-time message rendering
 
+- Fully usable map + text posting loop
+- Stable real-time message rendering
+
+---
+
+## Phase 1.5 — Database Architecture
+Status: COMPLETED
+
+- Migrate from in-memory store to SQLite
+- Implement Prisma ORM
+- User identity persistence (NextAuth + Prisma Adapter)
+- Message persistence and voting logic
+
+Deliverables:
+- Persistent data across restarts
+- Type-safe database interactions
+
 ---
 
 ## Phase 2 — UX Refinement

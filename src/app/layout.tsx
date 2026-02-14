@@ -16,7 +16,9 @@ const geistMono = Geist_Mono({
 import { SessionProvider } from "next-auth/react";
 import Map from "@/components/Map";
 import { ConfigProvider } from "@/context/ConfigContext";
+import { UIProvider } from "@/context/UIContext";
 import DebugPanel from "@/components/DebugPanel";
+import OnboardingModal from "@/components/OnboardingModal";
 
 export default function RootLayout({
   children,
@@ -28,17 +30,20 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}>
         <SessionProvider>
           <ConfigProvider>
-            {/* Persistent Map Background */}
-            <div className="absolute inset-0 z-0">
-              <Map />
-            </div>
+            <UIProvider>
+              {/* Persistent Map Background */}
+              <div className="absolute inset-0 z-0">
+                <Map />
+              </div>
 
-            {/* Page Content Overlay */}
-            <div className="relative z-10 w-full h-full pointer-events-none">
-              {children}
-            </div>
+              {/* Page Content Overlay */}
+              <div className="relative z-10 w-full h-full pointer-events-none">
+                {children}
+              </div>
 
-            <DebugPanel />
+              <DebugPanel />
+              <OnboardingModal />
+            </UIProvider>
           </ConfigProvider>
         </SessionProvider>
       </body>

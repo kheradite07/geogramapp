@@ -21,7 +21,7 @@ const defaultConfig: ConfigState = {
     maxChars: 50,
     isSimulationMode: false,
     unlimitedVotes: false,
-    clusterRadius: 0.005, // ~500m at zoom 12
+    clusterRadius: 0.009, // ~900m at zoom 12
 };
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
