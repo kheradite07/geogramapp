@@ -11,7 +11,10 @@ import { Message } from "@/lib/store";
 import { useSession } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { useUI } from "@/context/UIContext";
-import { UserPlus, Check, Clock } from "lucide-react";
+import { UserPlus, Check, Clock, Search, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import MessageDetails from "./MessageDetails";
+import VoteControls from "./VoteControls";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -42,161 +45,19 @@ const UserLocationMarker = () => (
     </div>
 );
 
-// Vote Controls Component - Shared between Bubble and Details Panel
-// Vote Controls Component - Shared between Bubble and Details Panel
-const VoteControls = ({
-    message,
-    onVote,
-    currentUser,
-    unlimitedVotes = false,
-    orientation = 'corner'
-}: {
-    message: Message;
-    onVote?: (id: string, action: 'like' | 'dislike', unlimited: boolean) => void;
-    currentUser?: any;
-    unlimitedVotes?: boolean;
-    orientation?: 'corner' | 'horizontal';
-}) => {
-    const [optimisticLikes, setOptimisticLikes] = useState(message.likes || 0);
-    const [optimisticDislikes, setOptimisticDislikes] = useState(message.dislikes || 0);
-
-    // Track optimistic "active" state
-    const userId = currentUser?.id || "anonymous";
-
-    // helper to robustly check inclusion
-    const hasUserVoted = (list: string[] | undefined, uid: string) => {
-        if (!list || !Array.isArray(list)) return false;
-        // console.log('Checking vote:', { list, uid, result: list.includes(uid) });
-        return list.includes(uid);
-    };
-
-    const initialHasLiked = hasUserVoted(message.likedBy, userId);
-    const initialHasDisliked = hasUserVoted(message.dislikedBy, userId);
-
-    const [optimisticHasLiked, setOptimisticHasLiked] = useState(initialHasLiked);
-    const [optimisticHasDisliked, setOptimisticHasDisliked] = useState(initialHasDisliked);
-
-    const [likeAnimation, setLikeAnimation] = useState(false);
-    const [dislikeAnimation, setDislikeAnimation] = useState(false);
-
-    useEffect(() => {
-        setOptimisticLikes(message.likes || 0);
-        setOptimisticDislikes(message.dislikes || 0);
-        setOptimisticHasLiked(hasUserVoted(message.likedBy, userId));
-        setOptimisticHasDisliked(hasUserVoted(message.dislikedBy, userId));
-    }, [message.likes, message.dislikes, message.id, message.likedBy, message.dislikedBy, userId]);
-
-    const handleVoteAction = (e: React.MouseEvent, action: 'like' | 'dislike') => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        if (!currentUser && !unlimitedVotes) {
-            onVote?.(message.id, action, false);
-            return;
-        }
-
-        if (unlimitedVotes) {
-            if (action === 'like') {
-                setOptimisticLikes(prev => prev + 1);
-                setOptimisticHasLiked(true); // Always turn active
-                setLikeAnimation(true);
-                setTimeout(() => setLikeAnimation(false), 600);
-            } else {
-                setOptimisticDislikes(prev => prev + 1);
-                setOptimisticHasDisliked(true); // Always turn active
-                setDislikeAnimation(true);
-                setTimeout(() => setDislikeAnimation(false), 600);
-            }
-            onVote?.(message.id, action, true);
-            return;
-        }
-
-        if (action === 'like') {
-            console.log('Follow-up vote debug:', { hasLiked: optimisticHasLiked, likes: optimisticLikes, userId });
-            if (optimisticHasLiked) {
-                setOptimisticLikes(prev => Math.max(0, prev - 1));
-                setOptimisticHasLiked(false);
-            } else {
-                setOptimisticLikes(prev => prev + 1);
-                setOptimisticHasLiked(true);
-                if (optimisticHasDisliked) {
-                    setOptimisticDislikes(prev => Math.max(0, prev - 1));
-                    setOptimisticHasDisliked(false);
-                }
-                setLikeAnimation(true);
-                setTimeout(() => setLikeAnimation(false), 600);
-            }
-        } else {
-            if (optimisticHasDisliked) {
-                setOptimisticDislikes(prev => Math.max(0, prev - 1));
-                setOptimisticHasDisliked(false);
-            } else {
-                setOptimisticDislikes(prev => prev + 1);
-                setOptimisticHasDisliked(true);
-                if (optimisticHasLiked) {
-                    setOptimisticLikes(prev => Math.max(0, prev - 1));
-                    setOptimisticHasLiked(false);
-                }
-                setDislikeAnimation(true);
-                setTimeout(() => setDislikeAnimation(false), 600);
-            }
-        }
-        onVote?.(message.id, action, false);
-    };
-
-    if (orientation === 'corner') {
-        return (
-            <>
-                <button
-                    onClick={(e) => handleVoteAction(e, 'like')}
-                    className={`vote-badge absolute -top-2 -right-2 min-w-[32px] h-7 px-2 flex items-center justify-center gap-1 bg-gradient-to-br from-green-500/95 to-emerald-600/95 backdrop-blur-sm rounded-full border-2 border-green-300/40 shadow-lg cursor-pointer hover:scale-110 transition-all z-10 ${optimisticHasLiked ? 'ring-2 ring-white ring-offset-1 ring-offset-green-500' : ''} ${likeAnimation ? 'vote-animate' : ''}`}
-                >
-                    <svg className="w-3.5 h-3.5" fill="white" viewBox="0 0 24 24">
-                        <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 11H4a2 2 0 00-2 2v6a2 2 0 002 2h3" />
-                    </svg>
-                    <span className="text-xs font-bold text-white">{optimisticLikes}</span>
-                </button>
-                <button
-                    onClick={(e) => handleVoteAction(e, 'dislike')}
-                    className={`vote-badge absolute -bottom-2 -right-2 min-w-[32px] h-7 px-2 flex items-center justify-center gap-1 bg-gradient-to-br from-red-500/95 to-rose-600/95 backdrop-blur-sm rounded-full border-2 border-red-300/40 shadow-lg cursor-pointer hover:scale-110 transition-all z-10 ${optimisticHasDisliked ? 'ring-2 ring-white ring-offset-1 ring-offset-red-500' : ''} ${dislikeAnimation ? 'vote-animate' : ''}`}
-                >
-                    <svg className="w-3.5 h-3.5" fill="white" viewBox="0 0 24 24">
-                        <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3zm7-13h3a2 2 0 012 2v6a2 2 0 01-2 2h-3" />
-                    </svg>
-                    <span className="text-xs font-bold text-white">{optimisticDislikes}</span>
-                </button>
-            </>
-        );
-    }
-
-    return (
-        <div className="flex items-center space-x-3" onClick={e => e.stopPropagation()}>
-            <button
-                onClick={(e) => handleVoteAction(e, 'like')}
-                className={`flex items-center space-x-1 transition-all ${optimisticHasLiked ? 'text-green-400' : 'text-gray-400 hover:text-green-400'} ${likeAnimation ? 'vote-animate' : ''}`}
-            >
-                <div className={`p-1.5 rounded-full transition-colors ${optimisticHasLiked ? 'bg-green-500/20' : 'bg-white/5 hover:bg-green-500/20'}`}>
-                    <svg className="w-5 h-5 md:w-6 md:h-6" fill={optimisticHasLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                    </svg>
-                </div>
-                <span className="text-sm font-bold">{optimisticLikes}</span>
-            </button>
-
-            <button
-                onClick={(e) => handleVoteAction(e, 'dislike')}
-                className={`flex items-center space-x-1 transition-all ${optimisticHasDisliked ? 'text-red-400' : 'text-gray-400 hover:text-red-400'} ${dislikeAnimation ? 'vote-animate' : ''}`}
-            >
-                <div className={`p-1.5 rounded-full transition-colors ${optimisticHasDisliked ? 'bg-red-500/20' : 'bg-white/5 hover:bg-red-500/20'}`}>
-                    <svg className="w-5 h-5 md:w-6 md:h-6" fill={optimisticHasDisliked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
-                    </svg>
-                </div>
-                <span className="text-sm font-bold">{optimisticDislikes}</span>
-            </button>
-        </div>
-    );
+const FOG_CONFIG = {
+    range: [0.5, 10] as [number, number],
+    color: "#240046",
+    "high-color": "#1a0033",
+    "space-color": "#050011",
+    "horizon-blend": 0.05,
+    "star-intensity": 0.5
 };
+
+
+
+
+
 
 // Message Marker Component
 // Premium Message Bubble Component
@@ -211,7 +72,7 @@ const MessageMarker = ({
     zoom = 12
 }: {
     message: Message & { hiddenCount?: number };
-    onClick?: () => void;
+    onClick?: (e?: React.MouseEvent) => void;
     onVote?: (id: string, action: 'like' | 'dislike', unlimited: boolean) => void;
     currentUser?: any;
     unlimitedVotes?: boolean;
@@ -275,7 +136,10 @@ const MessageMarker = ({
 
     return (
         <div
-            onClick={onClick}
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick?.(e);
+            }}
             className="cursor-pointer group pointer-events-auto message-container"
             style={bubbleStyle}
         >
@@ -360,7 +224,8 @@ const MessageMarker = ({
                     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
                     outline: var(--outline);
                     outline-offset: 2px;
-                    /* Ensure no default transform interferes with animation */
+                    /* More visible white outline for contrast against purple map */
+                    box-shadow: var(--bubble-shadow), 0 0 0 1px rgba(255, 255, 255, 0.4);
                 }
 
                 .message-bubble:hover {
@@ -755,13 +620,13 @@ export default function MapComponent() {
                 mapRef.current.flyTo({
                     center: [msg.lng, msg.lat],
                     zoom: 16,
-                    duration: 1500,
+                    padding: { top: 450 },
+                    duration: 600,
                     essential: true
                 });
-                // Reset flag after animation completes
                 setTimeout(() => {
                     isProgrammaticMove.current = false;
-                }, 1600);
+                }, 800); // Longer timeout than flyTo duration to prevent premature closing
             }
         }
     };
@@ -788,6 +653,87 @@ export default function MapComponent() {
             fetchLocationName();
         }
     }, [selectedMessage]);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false); // New state for toggle
+
+    // Handle Search
+    const handleSearch = async (query: string) => {
+        setSearchQuery(query);
+        if (query.length < 3) {
+            setSearchResults([]);
+            setShowResults(false);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`;
+            const params = new URLSearchParams({
+                access_token: MAPBOX_TOKEN || '',
+                types: 'place,country,poi,address',
+                limit: '5',
+                language: 'en' // or make this dynamic
+            });
+
+            const response = await fetch(`${endpoint}?${params}`);
+            const data = await response.json();
+
+            if (data.features) {
+                setSearchResults(data.features);
+                setShowResults(true);
+            }
+        } catch (error) {
+            console.error("Geocoding error:", error);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleSelectLocation = (feature: any) => {
+        const [lng, lat] = feature.center;
+
+        mapRef.current?.flyTo({
+            center: [lng, lat],
+            zoom: feature.bbox ? 12 : 14, // Zoom level depends on result type usually, but generic is fine
+            duration: 2000,
+            essential: true
+        });
+
+        // If bbox exists and matches viewport roughly, fitBounds might be better, 
+        // but flyTo center is simpler for now and cleaner.
+
+        setShowResults(false);
+        setSearchQuery(feature.place_name);
+    };
+
+    const clearSearch = () => {
+        setSearchQuery("");
+        setSearchResults([]);
+        setShowResults(false);
+    };
+
+    // Force Static Lighting to prevent "Black Hemisphere"
+    // We set a high ambient light so everything is visible
+    useEffect(() => {
+        const map = mapRef.current?.getMap();
+        if (map && map.setLights) {
+            map.setLights([
+                {
+                    id: 'ambient_light',
+                    type: 'ambient',
+                    properties: {
+                        color: '#ffffff',
+                        intensity: 1.0 // Fully lit, no shadows
+                    }
+                }
+            ]);
+        }
+    }, []);
 
     // Sync with user location once found
     useEffect(() => {
@@ -816,19 +762,98 @@ export default function MapComponent() {
                 cursor: isSimulationMode ? 'crosshair' : 'default'
             }}
         >
+            {/* Search Bar Overlay - Top Right */}
+            <div
+                className={`absolute top-4 right-4 z-50 transition-all duration-300 ease-in-out ${isSearchOpen ? 'w-[70%] max-w-sm' : 'w-12 h-12'
+                    }`}
+            >
+                <div className="relative group flex justify-end">
+                    {/* Collapsed State (Button) */}
+                    {!isSearchOpen && (
+                        <button
+                            onClick={() => {
+                                setIsSearchOpen(true);
+                                // input will auto-focus via autoFocus prop or ref if rendered
+                            }}
+                            className="bg-gradient-to-br from-purple-600 to-indigo-600 border border-white/20 rounded-full w-12 h-12 flex items-center justify-center text-white hover:scale-110 transition-all shadow-lg shadow-purple-600/40"
+                        >
+                            <Search className="h-6 w-6" />
+                        </button>
+                    )}
+
+                    {/* Expanded State (Input) */}
+                    {isSearchOpen && (
+                        <div className="relative w-full animate-in fade-in zoom-in-95 duration-200">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-purple-300" />
+                            </div>
+                            <input
+                                autoFocus
+                                type="text"
+                                className="block w-full pl-9 pr-9 py-3 bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/50 rounded-full text-base text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-2xl shadow-purple-900/50"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                onBlur={() => {
+                                    // Delay collapse to allow clicking results
+                                    setTimeout(() => {
+                                        if (!searchQuery) setIsSearchOpen(false);
+                                    }, 200);
+                                }}
+                            />
+                            <button
+                                onClick={() => {
+                                    clearSearch();
+                                    setIsSearchOpen(false);
+                                }}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-300 hover:text-white transition-colors"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Search Results Dropdown */}
+                {showResults && searchResults.length > 0 && (
+                    <div className="absolute mt-2 w-full bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/30 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                        <ul>
+                            {searchResults.map((result) => (
+                                <li
+                                    key={result.id}
+                                    onClick={() => handleSelectLocation(result)}
+                                    className="px-4 py-3 hover:bg-purple-900/50 cursor-pointer text-white border-b border-purple-500/10 last:border-none transition-colors"
+                                >
+                                    <div className="font-medium text-sm text-purple-100">{result.text}</div>
+                                    <div className="text-xs text-purple-400 truncate">{result.place_name}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+
             <Map
                 ref={mapRef}
                 {...viewState}
+                // light prop removed to fix deprecation warning
                 onMove={(evt) => {
+                    const previousZoom = viewState.zoom;
                     setViewState(evt.viewState);
+
+                    // Close details on any zoom change (slow or fast)
+                    if (!isProgrammaticMove.current && selectedMessage && Math.abs(evt.viewState.zoom - previousZoom) > 0.01) {
+                        setSelectedMessage(null);
+                        setMessageDetailsOpen(false);
+                    }
+
                     // Close friend popup only on user-initiated movement, not programmatic flyTo
                     if (selectedFriend && !isProgrammaticMove.current) {
                         setSelectedFriend(null);
                     }
                 }}
                 onMoveStart={() => {
-                    // Close details overlay when user starts panning
-                    if (selectedMessage) {
+                    if (!isProgrammaticMove.current && selectedMessage) {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
                     }
@@ -844,6 +869,8 @@ export default function MapComponent() {
                 mapStyle={customMapStyle as any}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 attributionControl={false}
+                projection="globe"
+                fog={FOG_CONFIG}
                 onClick={async (evt) => {
                     if (isSimulationMode) {
                         const { lng, lat } = evt.lngLat;
@@ -995,30 +1022,39 @@ export default function MapComponent() {
                 )}
 
                 {/* 1. BUBBLES: Posts to show as full bubbles */}
-                {visibleMessages.filter(msg => postsToShowAsBubbles.has(msg.id)).map((msg, index) => (
-                    <Marker
-                        key={`bubble-${msg.id}`}
-                        latitude={msg.lat}
-                        longitude={msg.lng}
-                        anchor="bottom"
-                        onClick={(e) => {
-                            e.originalEvent.stopPropagation();
-                            handleMarkerClick(msg);
-                        }}
-                    >
-                        <div className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`} style={{ animationDelay: `${150 + index * 30}ms` }}>
-                            <MessageMarker
-                                message={msg} // No hiddenCount on bubbles anymore
-                                onVote={handleVote}
-                                currentUser={currentUserData}
-                                unlimitedVotes={unlimitedVotes}
-                                isSelected={selectedMessage?.id === msg.id}
-                                isNearCenter={true} // Bubbles are always "Near Center" style (expanded)
-                                zoom={viewState.zoom}
-                            />
-                        </div>
-                    </Marker>
-                ))}
+                <AnimatePresence>
+                    {visibleMessages.filter(msg => postsToShowAsBubbles.has(msg.id)).map((msg, index) => (
+                        <Marker
+                            key={`bubble-${msg.id}`}
+                            latitude={msg.lat}
+                            longitude={msg.lng}
+                            anchor="bottom"
+                        >
+                            {/* Only show marker if it's NOT the selected one (expanding) */}
+                            {selectedMessage?.id !== msg.id && (
+                                <motion.div
+                                    layoutId={`message-container-${msg.id}`}
+                                    className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
+                                    style={{
+                                        animationDelay: `${150 + index * 30}ms`,
+                                        zIndex: 10 // Ensure lower z-index than expanded details
+                                    }}
+                                >
+                                    <MessageMarker
+                                        message={msg} // No hiddenCount on bubbles anymore
+                                        onVote={handleVote}
+                                        onClick={() => handleMarkerClick(msg)}
+                                        currentUser={currentUserData}
+                                        unlimitedVotes={unlimitedVotes}
+                                        isSelected={selectedMessage?.id === msg.id}
+                                        isNearCenter={true} // Bubbles are always "Near Center" style (expanded)
+                                        zoom={viewState.zoom}
+                                    />
+                                </motion.div>
+                            )}
+                        </Marker>
+                    ))}
+                </AnimatePresence>
 
                 {/* 2. CLUSTERS: Groups of dots (lowlights) */}
                 {dotClusters.map((cluster, i) => (
@@ -1056,133 +1092,46 @@ export default function MapComponent() {
                             handleMarkerClick(msg);
                         }}
                     >
-                        <div className={`cursor-pointer transition-transform duration-300 hover:scale-150 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}>
-                            <div className="w-2 h-2 rounded-full border border-white shadow-md bg-indigo-500" />
-                        </div>
+                        {/* Only show marker if it's NOT the selected one (expanding) */}
+                        {selectedMessage?.id !== msg.id && (
+                            <motion.div
+                                layoutId={`message-container-${msg.id}`}
+                                className={`cursor-pointer transition-transform duration-300 hover:scale-150 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
+                            >
+                                <div className="w-2 h-2 rounded-full border border-white shadow-md bg-indigo-500" />
+                            </motion.div>
+                        )}
                     </Marker>
                 ))}
 
-                <GeolocateControl position="bottom-right" />
-                <NavigationControl position="bottom-right" showCompass={false} />
+                {/* Message Details Overlay - Expanded from Bubble AS A MARKER */}
+                <AnimatePresence>
+                    {selectedMessage && (
+                        <Marker
+                            latitude={selectedMessage.lat}
+                            longitude={selectedMessage.lng}
+                            anchor="bottom"
+                            style={{ zIndex: 100 }} // Ensure it's on top
+                        >
+                            <MessageDetails
+                                message={selectedMessage}
+                                layoutId={`message-container-${selectedMessage.id}`}
+                                onClose={() => {
+                                    setSelectedMessage(null);
+                                    setMessageDetailsOpen(false);
+                                }}
+                                onVote={handleVote}
+                                onAddFriend={onAddFriend}
+                                getFriendStatus={getFriendStatus}
+                                currentUser={session}
+                                unlimitedVotes={unlimitedVotes}
+                                locationName={locationName}
+                            />
+                        </Marker>
+                    )}
+                </AnimatePresence>
             </Map>
 
-            {/* Message Details Overlay - Compact Design */}
-            {selectedMessage && (
-                <div
-                    className="absolute bottom-32 left-4 right-4 md:left-auto md:right-4 md:top-20 md:bottom-auto md:w-72 z-50 pointer-events-auto max-w-sm mx-auto md:mx-0"
-                    style={{
-                        animation: 'slideUpScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
-                    }}
-                >
-                    <div className="bg-black/70 backdrop-blur-xl border border-purple-500/30 rounded-xl p-4 shadow-2xl overflow-hidden relative">
-                        {/* Close Button */}
-                        <button
-                            onClick={() => {
-                                setSelectedMessage(null);
-                                setMessageDetailsOpen(false);
-                            }}
-                            className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white/60 hover:text-white transition-all z-10"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-
-                        {/* User Header - Compact */}
-                        <div
-                            className="flex items-center space-x-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity pr-6"
-                            onClick={() => selectedMessage.userId && router.push(`/profile?id=${selectedMessage.userId}`)}
-                        >
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full p-0.5 bg-gradient-to-tr from-purple-500 to-cyan-500 flex-shrink-0">
-                                {selectedMessage.userImage ? (
-                                    <img
-                                        src={selectedMessage.userImage}
-                                        alt={selectedMessage.userName}
-                                        className="w-full h-full rounded-full object-cover border-2 border-black"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full rounded-full bg-indigo-600 flex items-center justify-center border-2 border-black font-bold text-white text-xs">
-                                        {selectedMessage.userName.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <h3 className="text-white font-bold text-sm md:text-base leading-tight truncate">{selectedMessage.userName}</h3>
-                                <p className="text-cyan-400 text-[10px] md:text-xs font-medium">
-                                    {selectedMessage.isAnonymous ? "Anonymous User" : "Tap to view profile"}
-                                </p>
-                            </div>
-
-                            {/* Add Friend Button */}
-                            {currentUserData && !selectedMessage.isAnonymous && getFriendStatus(selectedMessage.userId) !== 'self' && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onAddFriend(selectedMessage.userId);
-                                    }}
-                                    disabled={getFriendStatus(selectedMessage.userId) !== 'none'}
-                                    className={`p-2 rounded-full transition-all ${getFriendStatus(selectedMessage.userId) === 'friend' ? 'bg-green-500/20 text-green-400' :
-                                        getFriendStatus(selectedMessage.userId) === 'sent' ? 'bg-yellow-500/20 text-yellow-400' :
-                                            'bg-purple-600 text-white hover:bg-purple-700'
-                                        }`}
-                                >
-                                    {getFriendStatus(selectedMessage.userId) === 'friend' ? <Check size={16} /> :
-                                        getFriendStatus(selectedMessage.userId) === 'sent' ? <Clock size={16} /> :
-                                            <UserPlus size={16} />}
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Message Body - Compact */}
-                        <div className="mb-3">
-                            <p className="text-white text-sm md:text-base leading-snug">
-                                "{selectedMessage.text}"
-                            </p>
-                        </div>
-
-                        {/* Voting Controls - Large Horizontal */}
-                        <div className="mb-3 pb-3 border-b border-white/10 flex items-center justify-between">
-                            <VoteControls
-                                message={selectedMessage}
-                                onVote={handleVote}
-                                currentUser={session?.user}
-                                unlimitedVotes={unlimitedVotes}
-                                orientation="horizontal"
-                            />
-                            <span className="text-[10px] text-white/40 font-mono tracking-wider uppercase">
-                                {(selectedMessage.likes || 0) + (selectedMessage.dislikes || 0)} votes
-                            </span>
-                        </div>
-
-                        {/* Meta Info - Compact */}
-                        <div className="space-y-2">
-                            {/* Time */}
-                            <div className="flex items-center text-xs text-gray-300">
-                                <svg className="w-3.5 h-3.5 mr-1.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>{formatRelativeTime(selectedMessage.timestamp)} ago</span>
-                            </div>
-
-                            {/* Location - Compact */}
-                            <div className="flex items-start text-xs text-gray-300">
-                                <svg className="w-3.5 h-3.5 mr-1.5 text-red-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-medium text-white/90 truncate">
-                                        {locationName || "Locating..."}
-                                    </p>
-                                    <p className="text-[10px] text-white/40 truncate">
-                                        {selectedMessage.lat.toFixed(5)}, {selectedMessage.lng.toFixed(5)}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {locationError && (
                 <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded shadow-md z-10 text-xs">

@@ -99,29 +99,42 @@ export async function GET(request: Request) {
         const messages = await prisma.message.findMany({
             where: whereConditions,
             orderBy: { createdAt: 'desc' },
-            take: 100
+            take: 100,
+            include: { user: true } // Fetch current user data
         });
 
-        // Map to frontend format if needed, but Prisma model is close enough.
-        // We might need to adjust variable names if frontend expects different (e.g. lat/lng vs latitude/longitude)
-        // Frontend expects: id, text, lat, lng, timestamp, userId, userName, userImage, visibility...
+        // Map to frontend format using current user data instead of snapshot
+        const mappedMessages = messages.map(msg => {
+            // If the user has global anonymity enabled, hide identity
+            // Or if the specific message was posted anonymously (though user setting overrides for consistency if desired)
+            // The request was: "Hide profile opened before posted messages... show as public" -> essentially current privacy settings apply retroactively
+            const showIdentity = !msg.user.isAnonymous;
 
-        const mappedMessages = messages.map(msg => ({
-            id: msg.id,
-            text: msg.content,
-            lat: msg.latitude,
-            lng: msg.longitude,
-            timestamp: msg.createdAt.getTime(),
-            userId: msg.userId,
-            userName: msg.authorName,
-            userImage: msg.authorImage || undefined,
-            likes: msg.likes,
-            dislikes: msg.dislikes,
-            likedBy: JSON.parse(msg.likedBy || '[]'),
-            dislikedBy: JSON.parse(msg.dislikedBy || '[]'),
-            isAnonymous: msg.isAnonymous,
-            visibility: msg.visibility
-        }));
+            return {
+                id: msg.id,
+                text: msg.content,
+                lat: msg.latitude,
+                lng: msg.longitude,
+                timestamp: msg.createdAt.getTime(),
+                userId: msg.userId,
+                // Use current user profile data
+                userName: showIdentity ? (msg.user.fullName || msg.user.name || "Unknown") : "Anonymous",
+                userImage: showIdentity ? (msg.user.image || undefined) : undefined,
+                likes: msg.likes,
+                dislikes: msg.dislikes,
+                likedBy: JSON.parse(msg.likedBy || '[]'),
+                dislikedBy: JSON.parse(msg.dislikedBy || '[]'),
+                // The message itself might have been posted anonymously, but if user is now anonymous, it remains so.
+                // If user is NOT anonymous now, but posted anonymously back then? 
+                // The user said: "Before hide profile opened... posted messages ... visible". 
+                // So if I enable hide profile, EVERYTHING should be hidden.
+                // If I disable hide profile, ideally valid messages show up. 
+                // But if a message was explicitly anonymous, maybe it should stay anonymous?
+                // For simplicity and user request "everything changes", we rely heavily on current user state.
+                isAnonymous: !showIdentity || msg.isAnonymous,
+                visibility: msg.visibility
+            };
+        });
 
         return NextResponse.json(mappedMessages, { status: 200 });
     } catch (error) {

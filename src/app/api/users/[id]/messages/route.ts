@@ -9,21 +9,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const messages = await prisma.message.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
-            take: 10
+            take: 10,
+            include: { user: true }
         });
 
         // Map to frontend format
-        const mappedMessages = messages.map(msg => ({
-            id: msg.id,
-            text: msg.content,
-            lat: msg.latitude,
-            lng: msg.longitude,
-            timestamp: msg.createdAt.getTime(),
-            userId: msg.userId,
-            userName: msg.authorName,
-            userImage: msg.authorImage || undefined,
-            visibility: msg.visibility
-        }));
+        const mappedMessages = messages.map(msg => {
+            const showIdentity = !msg.user.isAnonymous;
+            return {
+                id: msg.id,
+                text: msg.content,
+                lat: msg.latitude,
+                lng: msg.longitude,
+                timestamp: msg.createdAt.getTime(),
+                userId: msg.userId,
+                userName: showIdentity ? (msg.user.fullName || msg.user.name || "Unknown") : "Anonymous",
+                userImage: showIdentity ? (msg.user.image || undefined) : undefined,
+                visibility: msg.visibility,
+                // Also ensure isAnonymous flag is consistent with current user state + message state
+                isAnonymous: !showIdentity || msg.isAnonymous
+            };
+        });
 
         return NextResponse.json(mappedMessages);
     } catch (error) {

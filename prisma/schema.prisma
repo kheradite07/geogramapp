@@ -46,6 +46,7 @@ model User {
   // Custom Fields
   username      String?   @unique
   fullName      String?
+  bio           String?
   isOnboarded   Boolean   @default(false)
   isAnonymous   Boolean   @default(false)
   
@@ -61,6 +62,7 @@ model User {
   sessions      Session[]
   
   messages      Message[]
+  comments      Comment[]
   
   // Friendship Logic
   friendsRequested Friendship[] @relation("UserFriendRequestsSent")
@@ -97,6 +99,8 @@ model Message {
   dislikes    Int     @default(0)
   likedBy     String  @default("[]") // JSON array of user identifiers
   dislikedBy  String  @default("[]") // JSON array of user identifiers
+  
+  comments    Comment[]
 }
 
 model Friendship {
@@ -110,4 +114,21 @@ model Friendship {
   receiver  User @relation("UserFriendRequestsReceived", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([requesterId, receiverId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Snapshot of user state at time of commenting
+  authorName  String
+  authorImage String?
+  isAnonymous Boolean @default(false)
 }

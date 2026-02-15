@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, LogOut, User as UserIcon, MapPin } from "lucide-react";
 import useSWR from "swr";
 import { useUser } from "@/hooks/useUser";
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/api";
 
 const fetcher = (url: string) => fetch(getApiUrl(url), { credentials: 'include' }).then((res) => res.json());
@@ -53,6 +53,12 @@ function ProfileContent() {
         fetcher
     );
 
+    // Re-fetch profile data to ensure freshness, especially if coming from a mutation
+    const { mutate } = useSWR(
+        isOwnProfile || !effectiveUserId ? null : `/api/users/${effectiveUserId}`,
+        fetcher
+    );
+
     const displayUser = isOwnProfile ? currentUser : publicProfile;
 
     if (isLoading && !isOwnProfile) {
@@ -75,7 +81,7 @@ function ProfileContent() {
                     Back to Map
                 </button>
 
-                <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl">
+                <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative">
                     <div className="flex flex-col items-center">
                         <div className="relative group">
                             <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
@@ -102,8 +108,15 @@ function ProfileContent() {
                             @{displayUser.username || (displayUser.name ? displayUser.name.replace(/\s+/g, '').toLowerCase() : "user")}
                         </p>
 
+                        {/* Bio Display */}
+                        {displayUser.bio && (
+                            <p className="text-gray-300 text-center mt-4 max-w-sm italic">
+                                "{displayUser.bio}"
+                            </p>
+                        )}
+
                         {isOwnProfile && session?.user?.email && (
-                            <p className="text-gray-400 text-sm mb-6">{session.user.email}</p>
+                            <p className="text-gray-400 text-sm mt-2 mb-6">{session.user.email}</p>
                         )}
 
                         {isOwnProfile && (

@@ -11,6 +11,7 @@ export interface User {
     // Custom Fields
     username?: string;
     fullName?: string;
+    bio?: string;
     isOnboarded: boolean;
     isAnonymous: boolean;
 
@@ -45,7 +46,7 @@ type UserWithRelations = Prisma.UserGetPayload<{
         friendsRequested: { include: { receiver: true } };
         friendsReceived: { include: { requester: true } };
     }
-}>;
+}> & { bio?: string | null };
 
 export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations): User {
     // Combine friends from both directions
@@ -98,6 +99,7 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations): User
         image: prismaUser.image || undefined,
         username: prismaUser.username || undefined,
         fullName: prismaUser.fullName || undefined,
+        bio: prismaUser.bio || undefined,
         isOnboarded: prismaUser.isOnboarded,
         isAnonymous: prismaUser.isAnonymous,
         hideLocationFromFriends: prismaUser.hideLocationFromFriends,

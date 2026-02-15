@@ -152,12 +152,12 @@ export default function InputBar() {
 
     return (
         <>
-            {/* Location indicator - at top of screen */}
+            {/* Location indicator - above input bar */}
             {location && (
                 <div
                     style={{
                         position: 'absolute',
-                        top: '20px',
+                        bottom: '230px', // Well above the input bar to prevent overlap
                         left: '50%',
                         transform: 'translateX(-50%)',
                         display: 'flex',
@@ -213,15 +213,23 @@ export default function InputBar() {
                                 alignItems: 'center',
                                 gap: '8px',
                                 padding: '6px',
-                                background: 'rgba(20, 0, 50, 0.4)', // More transparent for liquid glass
+                                background: visibility === 'public'
+                                    ? 'rgba(20, 0, 50, 0.4)'
+                                    : 'rgba(0, 80, 40, 0.6)', // Stronger Green for friends
                                 backdropFilter: 'blur(20px) saturate(180%)',
                                 borderRadius: '9999px', // Fully oval
                                 boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                border: visibility === 'public'
+                                    ? '1px solid rgba(255, 255, 255, 0.1)'
+                                    : '1px solid rgba(74, 222, 128, 0.3)', // Slight green border
                                 transition: 'all 0.3s ease-out',
                                 ...(isFocused && {
-                                    background: 'rgba(30, 0, 70, 0.5)',
-                                    boxShadow: '0 0 0 1px rgba(157, 78, 221, 0.5), 0 8px 32px 0 rgba(31, 38, 135, 0.5)',
+                                    background: visibility === 'public'
+                                        ? 'rgba(30, 0, 70, 0.5)'
+                                        : 'rgba(5, 100, 50, 0.7)',
+                                    boxShadow: visibility === 'public'
+                                        ? '0 0 0 1px rgba(157, 78, 221, 0.5), 0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+                                        : '0 0 0 1px rgba(74, 222, 128, 0.6), 0 8px 32px 0 rgba(6, 78, 59, 0.5)',
                                 }),
                                 ...(!location && { opacity: 0.6 })
                             }}

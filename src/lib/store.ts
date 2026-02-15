@@ -18,6 +18,16 @@ export type Message = {
     visibility: 'public' | 'friends';
 };
 
+export type Comment = {
+    id: string;
+    content: string;
+    createdAt: string;
+    userId: string;
+    authorName: string;
+    authorImage?: string;
+    isAnonymous: boolean;
+};
+
 // Deprecated in-memory store
 // Kept to avoid breaking imports in files that haven't been fully refactored yet
 // but it will be empty and unused by the core logic
