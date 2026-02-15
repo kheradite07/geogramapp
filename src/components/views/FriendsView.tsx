@@ -3,7 +3,7 @@
 import { useUser } from "@/hooks/useUser";
 import { useState } from "react";
 import AuthPrompt from "@/components/AuthPrompt";
-import { Users, Search, UserPlus, UserCheck, X, UserMinus, Loader2 } from "lucide-react";
+import { Users, Search, UserPlus, UserCheck, X, UserMinus, Loader2, Share2 } from "lucide-react";
 
 export default function FriendsView() {
     const { user, searchUsers, handleFriendRequest, isLoading } = useUser();
@@ -37,6 +37,39 @@ export default function FriendsView() {
         setLoadingAction(null);
     };
 
+    const handleInvite = async () => {
+        const lang = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
+        let text = "Let's use Geogram app together geogramapp.vercel.app";
+        let title = "Join me on Geogram";
+
+        if (lang.startsWith('tr')) {
+            text = "Geogram uygulamasını seninle beraber kullanalım geogramapp.vercel.app";
+            title = "Geogram'a Katıl";
+        } else if (lang.startsWith('zh')) {
+            text = "让我们一起使用 Geogram 应用程序 geogramapp.vercel.app";
+            title = "加入 Geogram";
+        }
+
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: title,
+                    text: text,
+                });
+            } catch (error) {
+                console.log('Error sharing:', error);
+            }
+        } else {
+            // Fallback for desktop or unsupported browsers
+            try {
+                await navigator.clipboard.writeText(text);
+                alert(lang.startsWith('tr') ? "Bağlantı kopyalandı!" : "Link copied to clipboard!");
+            } catch (err) {
+                console.error("Clipboard failed", err);
+            }
+        }
+    };
+
     // Helper to check if user has outgoing request to this person
     const hasPendingRequest = (userId: string) => {
         return user?.friendRequests.outgoing.some((req: any) => req.id === userId);
@@ -64,6 +97,22 @@ export default function FriendsView() {
                 <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-indigo-300 drop-shadow-sm mb-6 pl-1">
                     Community
                 </h1>
+
+                {/* Invite Friend Button (Mobile optimized) */}
+                <button
+                    onClick={handleInvite}
+                    className="w-full mb-6 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 hover:border-green-500/50 rounded-2xl p-4 flex items-center justify-between group transition-all duration-300 hover:shadow-lg hover:shadow-green-900/20 active:scale-98"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform">
+                            <Share2 size={20} />
+                        </div>
+                        <div className="text-left">
+                            <div className="text-white font-semibold">Invite Friends</div>
+                            <div className="text-green-200/60 text-xs">Share Geogram via WhatsApp, etc.</div>
+                        </div>
+                    </div>
+                </button>
 
                 {/* Search */}
                 <form onSubmit={handleSearch} className="relative group">
