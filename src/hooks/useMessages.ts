@@ -22,8 +22,13 @@ export function useMessages() {
             body: JSON.stringify({ text, lat, lng, visibility }),
         });
 
+        const data = await res.json();
+
         if (res.ok) {
             mutate(); // Refresh validation
+            return { success: true, data };
+        } else {
+            return { success: false, error: data.error, isPremiumCallback: data.isPremiumCallback, status: res.status };
         }
     };
 

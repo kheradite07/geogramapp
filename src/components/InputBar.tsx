@@ -143,10 +143,24 @@ export default function InputBar() {
 
         setIsSending(true);
         // Pass visibility to sendMessage (requires update in hook/API)
-        // For now, we will just send it as part of the message if the hook allows or we update hook later
-        await sendMessage(message, location.lat, location.lng, visibility);
+        // We expect sendMessage to return an object { success: boolean, error?: string, isPremiumCallback?: boolean }
+        const result = await sendMessage(message, location.lat, location.lng, visibility);
+
+        // Check for Premium Limit Error (Limit Reached)
+        if (result && !result.success && result.isPremiumCallback) {
+            // Basic Alert for now - later can be a modal
+            // Using window.confirm to allow quick navigation
+            if (confirm(result.error || "Daily post limit reached! Upgrade to Premium for unlimited posts.")) {
+                window.location.href = '/settings'; // Force navigation
+            }
+        } else if (result && !result.success) {
+            alert(result.error || "Failed to post message");
+        } else {
+            // Success
+            setMessage("");
+        }
+
         setIsSending(false);
-        setMessage("");
     };
 
     if (isMessageDetailsOpen) return null;

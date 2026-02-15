@@ -22,6 +22,9 @@ export interface User {
 
     // Privacy
     hideLocationFromFriends: boolean;
+    level?: number;
+    xp?: number;
+    isPremium?: boolean;
 
     // Relations (simplified for frontend use)
     friends: {

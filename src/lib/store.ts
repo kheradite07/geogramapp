@@ -15,7 +15,8 @@ export type Message = {
     likedBy: string[];
     dislikedBy: string[];
     isAnonymous?: boolean;
-    visibility: 'public' | 'friends';
+    visibility?: 'public' | 'friends';
+    userIsPremium?: boolean;
 };
 
 export type Comment = {

@@ -212,6 +212,73 @@ export default function SettingsView() {
                     )}
                 </div>
 
+                {/* Level & XP Section */}
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 shadow-xl backdrop-blur-md relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-yellow-500/20 to-orange-500/0 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+
+                    <div className="flex justify-between items-end mb-2">
+                        <div>
+                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">Current Level</div>
+                            <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
+                                {user.level || 1}
+                                {user.isPremium && <span className="text-2xl pt-1">👑</span>}
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">XP Points</div>
+                            <div className="text-xl font-bold text-white font-mono">{user.xp || 0} <span className="text-white/40 text-sm">/ {((user.level || 1) * 100)}</span></div>
+                        </div>
+                    </div>
+
+                    {/* XP Progress Bar */}
+                    <div className="relative h-4 bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/5">
+                        <div
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 to-indigo-500 shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all duration-1000 ease-out"
+                            style={{ width: `${Math.min(100, ((user.xp || 0) % 100))}%` }} // Simplified percentage logic: XP % 100 for now assuming 100xp per level linear
+                        ></div>
+                        {/* Shimmer effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                    <div className="mt-2 text-right text-[10px] text-white/40">
+                        {100 - ((user.xp || 0) % 100)} XP to next level
+                    </div>
+                </div>
+
+                {/* Premium Membership Card (If not premium) */}
+                {!user.isPremium && (
+                    <div className="relative overflow-hidden rounded-3xl p-6 shadow-2xl group cursor-pointer border border-yellow-500/30">
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-900/40 to-black"></div>
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-all duration-500"></div>
+
+                        <div className="relative z-10 flex flex-col items-start">
+                            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3 shadow-lg shadow-yellow-500/20">
+                                Premium Access
+                            </div>
+                            <h3 className="text-2xl font-bold text-white mb-2 leading-tight">
+                                Unlock Limitless<br />Expression
+                            </h3>
+                            <ul className="space-y-2 mb-6">
+                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
+                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
+                                    Unlimited Daily Posts
+                                </li>
+                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
+                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
+                                    Exclusive Gold Map Marker
+                                </li>
+                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
+                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
+                                    Premium Crown Badge
+                                </li>
+                            </ul>
+                            <button className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/25 active:scale-95">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Privacy Settings */}
                 <div className="space-y-4">
                     <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 pl-1">

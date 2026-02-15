@@ -49,6 +49,11 @@ model User {
   bio           String?
   isOnboarded   Boolean   @default(false)
   isAnonymous   Boolean   @default(false)
+
+  // Leveling & Premium
+  level         Int       @default(1)
+  xp            Int       @default(0)
+  isPremium     Boolean   @default(false)
   
   // Location Tracking
   lastLat       Float?

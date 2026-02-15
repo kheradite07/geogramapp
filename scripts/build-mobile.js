@@ -34,7 +34,11 @@ try {
     const nextDir = path.join(__dirname, '..', '.next');
     if (fs.existsSync(nextDir)) {
         console.log('Clearing .next cache...');
-        fs.rmSync(nextDir, { recursive: true, force: true });
+        try {
+            fs.rmSync(nextDir, { recursive: true, force: true });
+        } catch (e) {
+            console.warn('Warning: Could not clear .next cache. Dev server might be running. Proceeding anyway...');
+        }
     }
 
     if (fs.existsSync(apiDir)) {
@@ -56,6 +60,9 @@ try {
 
 } catch (error) {
     console.error('Build execution failed.');
+    console.error(error);
+    if (error.stdout) console.log(error.stdout.toString());
+    if (error.stderr) console.error(error.stderr.toString());
     process.exit(1);
 } finally {
     restoreApi();

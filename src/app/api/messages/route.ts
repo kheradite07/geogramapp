@@ -24,6 +24,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
+        // Daily Post Limit Logic (For Non-Premium Users)
+        if (!user.isPremium) {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const postsToday = await prisma.message.count({
+                where: {
+                    userId: user.id,
+                    createdAt: {
+                        gte: startOfDay
+                    }
+                }
+            });
+
+            if (postsToday >= 3) {
+                return NextResponse.json({
+                    error: "Daily post limit reached",
+                    isPremiumCallback: true // Flag for frontend to show premium upsell
+                }, { status: 403 });
+            }
+        }
+
         const newMessage = await prisma.message.create({
             data: {
                 content: text,
@@ -37,7 +59,31 @@ export async function POST(request: Request) {
             }
         });
 
-        return NextResponse.json(newMessage, { status: 201 });
+        // XP & Leveling Logic
+        // +10 XP per post
+        const xpGain = 10;
+        const newXp = (user.xp || 0) + xpGain;
+        // Simple Level Formula: 1 + floor(xp / 100). Every 100 XP = 1 Level.
+        const newLevel = 1 + Math.floor(newXp / 100);
+
+        if (newXp !== user.xp || newLevel !== user.level) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    xp: newXp,
+                    level: newLevel
+                }
+            });
+        }
+
+        return NextResponse.json({
+            ...newMessage,
+            userUpdates: {
+                xp: newXp,
+                level: newLevel,
+                xpGained: xpGain
+            }
+        }, { status: 201 });
     } catch (error) {
         console.error("Error posting message:", error);
         return NextResponse.json({ error: "Server Error" }, { status: 500 });
@@ -132,7 +178,8 @@ export async function GET(request: Request) {
                 // But if a message was explicitly anonymous, maybe it should stay anonymous?
                 // For simplicity and user request "everything changes", we rely heavily on current user state.
                 isAnonymous: !showIdentity || msg.isAnonymous,
-                visibility: msg.visibility
+                visibility: msg.visibility,
+                userIsPremium: msg.user.isPremium
             };
         });
 

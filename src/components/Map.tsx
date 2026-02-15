@@ -114,24 +114,36 @@ const MessageMarker = ({
     const isFriends = message.visibility === 'friends';
 
     // CSS Variables for dynamic coloring
+    const isPremium = message.userIsPremium; // Assumes we add this field to message/user store or API response
+
     const bubbleStyle = {
         '--bubble-bg': isFriends
             ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%)'
-            : 'linear-gradient(135deg, rgba(123, 44, 191, 0.95) 0%, rgba(157, 78, 221, 0.95) 100%)',
+            : isPremium
+                ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.9) 0%, rgba(218, 165, 32, 0.9) 100%)' // Premium Gold
+                : 'linear-gradient(135deg, rgba(123, 44, 191, 0.95) 0%, rgba(157, 78, 221, 0.95) 100%)',
         '--bubble-border': isFriends
             ? '1px solid rgba(52, 211, 153, 0.3)'
-            : '1px solid rgba(199, 125, 255, 0.3)',
+            : isPremium
+                ? '1px solid rgba(255, 223, 0, 0.6)' // Premium Gold Border
+                : '1px solid rgba(199, 125, 255, 0.3)',
         '--bubble-shadow': isFriends
             ? '0 8px 32px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
-            : '0 8px 32px rgba(123, 44, 191, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            : isPremium
+                ? '0 8px 32px rgba(255, 215, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4)' // Gold Glow
+                : '0 8px 32px rgba(123, 44, 191, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
         '--bubble-shadow-hover': isFriends
             ? '0 12px 40px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-            : '0 12px 40px rgba(157, 78, 221, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+            : isPremium
+                ? '0 12px 40px rgba(255, 215, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.5)' // Stronger Gold Glow
+                : '0 12px 40px rgba(157, 78, 221, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
         '--tail-color': isFriends
             ? 'rgba(5, 150, 105, 0.95)'
-            : 'rgba(157, 78, 221, 0.95)',
+            : isPremium
+                ? 'rgba(218, 165, 32, 0.9)'
+                : 'rgba(157, 78, 221, 0.95)',
         '--outline': isSelected ? '3px solid rgba(255, 255, 255, 0.9)' : 'none',
-        zIndex: (isFriends ? 1000 : 0) + (message.likes || 0) + 10,
+        zIndex: (isFriends ? 1000 : isPremium ? 500 : 0) + (message.likes || 0) + 10,
     } as React.CSSProperties;
 
     return (
@@ -170,14 +182,21 @@ const MessageMarker = ({
 
                 {/* User Avatar */}
                 <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
+                    {/* Premium Crown - Absolute Position Top Right of Avatar */}
+                    {isPremium && (
+                        <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
+                            <span className="text-[10px]">👑</span>
+                        </div>
+                    )}
+
                     {message.userImage ? (
                         <img
                             src={message.userImage}
                             alt={message.userName}
-                            className="w-full h-full rounded-full object-cover border-2 border-white/20"
+                            className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
                         />
                     ) : (
-                        <div className="w-full h-full rounded-full bg-indigo-500 flex items-center justify-center border-2 border-white/20 text-xs font-bold">
+                        <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
                             {message.userName.charAt(0).toUpperCase()}
                         </div>
                     )}
@@ -317,12 +336,7 @@ const MessageMarker = ({
                         font-size: 9px !important;
                     }
                     .vote-badge {
-                        min-width: 28px !important;
-                        height: 24px !important;
-                        font-size: 10px !important;
-                        padding: 0 6px !important;
-                    }
-                    .vote-badge svg {
+                .vote-badge svg {
                         width: 10px !important;
                         height: 10px !important;
                     }
