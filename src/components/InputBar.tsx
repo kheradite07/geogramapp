@@ -179,15 +179,17 @@ export default function InputBar() {
 
             <div
                 style={{
-                    position: 'absolute',
-                    bottom: isKeyboardOpen ? '10px' : '110px', // Move down when keyboard is open (menu hidden)
+                    position: 'fixed', // Changed to fixed to stick to viewport relative
+                    bottom: isKeyboardOpen ? '0' : '110px',
                     left: 0,
                     right: 0,
-                    padding: '0 12px', // Reduced padding for better mobile fit
+                    padding: isKeyboardOpen ? '10px 12px' : '0 12px',
+                    paddingBottom: isKeyboardOpen ? 'calc(10px + env(safe-area-inset-bottom))' : '0', // Handle safe area
                     pointerEvents: 'none',
                     display: 'flex',
                     justifyContent: 'center',
-                    zIndex: 50
+                    zIndex: 50,
+                    transition: 'bottom 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' // smooth transition
                 }}
             >
                 <div

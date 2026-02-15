@@ -71,7 +71,7 @@ export default function MobileGoogleSignIn() {
         if (isNative) {
             handleNativeLogin();
         } else {
-            signIn("google", { callbackUrl: "/" });
+            signIn("google", { callbackUrl: window.location.origin });
         }
     };
 

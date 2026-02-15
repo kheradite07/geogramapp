@@ -34,26 +34,54 @@ export function UIProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        // Keyboard listeners for mobile adjustment
         let showListener: any;
         let hideListener: any;
+        let viewportHandler: any;
 
         const setupListeners = async () => {
-            // We can check if platform is native if needed, but listeners are safe to call
-            showListener = await Keyboard.addListener('keyboardWillShow', () => {
-                setState(prev => ({ ...prev, isKeyboardOpen: true }));
-            });
-
-            hideListener = await Keyboard.addListener('keyboardWillHide', () => {
-                setState(prev => ({ ...prev, isKeyboardOpen: false }));
-            });
+            // Capacitor Keyboard Plugin
+            try {
+                showListener = await Keyboard.addListener('keyboardWillShow', () => {
+                    setState(prev => ({ ...prev, isKeyboardOpen: true }));
+                });
+                hideListener = await Keyboard.addListener('keyboardWillHide', () => {
+                    setState(prev => ({ ...prev, isKeyboardOpen: false }));
+                });
+            } catch (e) {
+                // console.warn("Keyboard plugin not available");
+            }
         };
+
+        // Visual Viewport API
+        if (typeof window !== 'undefined' && window.visualViewport) {
+            const viewport = window.visualViewport;
+            // We capture the initial height. Note: On mobile, initial load might be full height.
+            // Ideally we compare against window.screen.height or keep track of max height seen.
+            let maxHeight = viewport.height;
+
+            viewportHandler = () => {
+                // Update max height if we find a larger one (e.g. browser bar collapse)
+                if (viewport.height > maxHeight) maxHeight = viewport.height;
+
+                const isKeyboardVisible = (maxHeight - viewport.height) > 150;
+                setState(prev => {
+                    if (prev.isKeyboardOpen !== isKeyboardVisible) {
+                        return { ...prev, isKeyboardOpen: isKeyboardVisible };
+                    }
+                    return prev;
+                });
+            };
+            viewport.addEventListener('resize', viewportHandler);
+        }
 
         setupListeners();
 
         return () => {
             if (showListener) showListener.remove();
             if (hideListener) hideListener.remove();
+            if (viewportHandler && window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', viewportHandler);
+            }
         };
     }, []);
 

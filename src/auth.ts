@@ -82,8 +82,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     callbacks: {
         async signIn({ user, account, profile }) {
-            // Allow all sign-ins
             return true;
+        },
+        async redirect({ url, baseUrl }) {
+            // Allow relative callback URLs
+            if (url.startsWith("/")) return `${baseUrl}${url}`
+            // Allow callback URLs on the same origin
+            if (new URL(url).origin === baseUrl) return url
+            // Allow localhost explicitly to fix dev environment redirects
+            if (url.includes("localhost") || url.includes("127.0.0.1")) return url
+            return baseUrl
         }
-    }
+    },
+    trustHost: true,
 })
