@@ -182,7 +182,7 @@ export default function InputBar() {
                     bottom: '110px', // Moved up to avoid bottom menu overlap
                     left: 0,
                     right: 0,
-                    padding: '0 24px',
+                    padding: '0 12px', // Reduced padding for better mobile fit
                     pointerEvents: 'none',
                     display: 'flex',
                     justifyContent: 'center',
@@ -197,6 +197,7 @@ export default function InputBar() {
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         transform: isMessageDetailsOpen ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
                         opacity: isMessageDetailsOpen ? 0 : 1,
+                        boxSizing: 'border-box', // Ensure padding doesn't cause overflow
                     }}
                 >
 
@@ -235,7 +236,7 @@ export default function InputBar() {
                             }}
                         >
                             {/* Toggle Button */}
-                            <div className="relative flex bg-black/30 rounded-full p-1 border border-white/5 ml-1">
+                            <div className="relative flex bg-black/30 rounded-full p-1 border border-white/5 ml-1 shrink-0">
                                 <div
                                     className={`absolute inset-y-1 w-1/2 rounded-full transition-all duration-300 ${visibility === 'public' ? 'left-1 bg-purple-600' : 'left-[calc(50%)] bg-green-500'}`}
                                     style={{ width: 'calc(50% - 4px)' }}
@@ -269,6 +270,8 @@ export default function InputBar() {
                                 maxLength={maxChars}
                                 style={{
                                     flex: 1,
+                                    width: 0, // CRITICAL: Forces flex-basis to 0, allowing flex-grow to work properly
+                                    minWidth: 0, // CRITICAL: Prevents flex item from overflowing container
                                     padding: '12px 16px',
                                     background: 'transparent',
                                     border: 'none',
@@ -288,6 +291,7 @@ export default function InputBar() {
                                 style={{
                                     padding: '12px',
                                     borderRadius: '9999px',
+                                    flexShrink: 0, // CRITICAL: Prevent button from shrinking or overflowing
                                     background: visibility === 'public'
                                         ? 'linear-gradient(135deg, #7b2cbf 0%, #3c096c 100%)'
                                         : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Green for friends
