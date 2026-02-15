@@ -1,17 +1,32 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function MobileGoogleSignIn() {
     const [isNative, setIsNative] = useState(false);
     const [GoogleAuth, setGoogleAuth] = useState<any>(null);
+    const { update } = useSession();
+    const router = useRouter();
 
     useEffect(() => {
-        // Check if running in Capacitor
-        if (typeof window !== "undefined" && (window as any).Capacitor) {
-            setIsNative(true);
+        // Build sırasında hata almamak için capacitor kontrolü
+        const checkPlatform = async () => {
+            try {
+                const { Capacitor } = await import("@capacitor/core");
+                if (Capacitor.getPlatform() === 'android') {
+                    setIsNative(true);
+                }
+            } catch (e) {
+                console.error("Platform check failed", e);
+            }
+        };
+        checkPlatform();
+    }, []);
 
+    useEffect(() => {
+        if (isNative) {
             // Dynamically import the plugin to avoid build errors
             import("@codetrix-studio/capacitor-google-auth").then(module => {
                 setGoogleAuth(module.GoogleAuth);
@@ -20,7 +35,7 @@ export default function MobileGoogleSignIn() {
                 console.error("Failed to load Google Auth plugin", err);
             });
         }
-    }, []);
+    }, [isNative]);
 
     const handleNativeLogin = async () => {
         if (!GoogleAuth) return;
@@ -29,8 +44,6 @@ export default function MobileGoogleSignIn() {
             const googleUser = await GoogleAuth.signIn();
             const idToken = googleUser.authentication.idToken;
 
-            alert("Google Plugin Success! Token obtained.");
-
             // Sign in using the NextAuth Credentials provider we configured
             const result = await signIn("google-mobile", {
                 idToken: idToken,
@@ -38,17 +51,13 @@ export default function MobileGoogleSignIn() {
                 redirect: false,
             });
 
-            alert("NextAuth Result: " + JSON.stringify(result));
-
             if (result?.error) {
                 alert("Login Failed: " + result.error);
                 console.error("Login Error:", result.error);
             } else if (result?.ok) {
-                alert("Login OK! Redirecting...");
-                // Success! Redirect to home
-                window.location.href = "/";
-            } else {
-                alert("Unknown Result: " + JSON.stringify(result));
+                await update(); // Force session update
+                router.refresh(); // Refresh server components
+                router.replace("/"); // Go to home without reload
             }
         } catch (error: any) {
             console.error("Native Google Sign-In Failed:", error);

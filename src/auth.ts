@@ -8,6 +8,7 @@ import { OAuth2Client } from "google-auth-library"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: PrismaAdapter(prisma),
+    session: { strategy: "jwt" },
     providers: [
         Google,
         Apple,
