@@ -29,13 +29,30 @@ export default function MobileGoogleSignIn() {
             const googleUser = await GoogleAuth.signIn();
             const idToken = googleUser.authentication.idToken;
 
+            alert("Google Plugin Success! Token obtained.");
+
             // Sign in using the NextAuth Credentials provider we configured
-            await signIn("google-mobile", {
+            const result = await signIn("google-mobile", {
                 idToken: idToken,
-                callbackUrl: "/"
+                callbackUrl: "/",
+                redirect: false,
             });
-        } catch (error) {
+
+            alert("NextAuth Result: " + JSON.stringify(result));
+
+            if (result?.error) {
+                alert("Login Failed: " + result.error);
+                console.error("Login Error:", result.error);
+            } else if (result?.ok) {
+                alert("Login OK! Redirecting...");
+                // Success! Redirect to home
+                window.location.href = "/";
+            } else {
+                alert("Unknown Result: " + JSON.stringify(result));
+            }
+        } catch (error: any) {
             console.error("Native Google Sign-In Failed:", error);
+            alert("Native Error: " + (error?.message || JSON.stringify(error)));
         }
     };
 

@@ -18,17 +18,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 idToken: { label: "ID Token", type: "text" }
             },
             async authorize(credentials) {
-                if (!credentials?.idToken) return null;
-
+                console.log("---- GOOGLE MOBILE AUTH START ----");
                 try {
-                    const client = new OAuth2Client(process.env.AUTH_GOOGLE_ID);
-                    const ticket = await client.verifyIdToken({
-                        idToken: credentials.idToken as string,
-                        audience: process.env.AUTH_GOOGLE_ID,
-                    });
-                    const payload = ticket.getPayload();
+                    const idToken = credentials.idToken as string
+                    if (!idToken) throw new Error("No idToken provided")
 
-                    if (!payload?.email) return null;
+                    const client = new OAuth2Client(process.env.AUTH_GOOGLE_ID)
+                    console.log("Verifying token with Client ID:", process.env.AUTH_GOOGLE_ID);
+
+                    const ticket = await client.verifyIdToken({
+                        idToken: idToken,
+                        audience: process.env.AUTH_GOOGLE_ID,
+                    })
+                    const payload = ticket.getPayload()
+                    console.log("Token verified. Payload:", payload?.email);
+
+                    if (!payload?.email) throw new Error("No email in token");
 
                     // Check if user exists
                     let user = await prisma.user.findUnique({
