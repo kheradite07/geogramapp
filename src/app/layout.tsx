@@ -17,6 +17,7 @@ import { SessionProvider } from "next-auth/react";
 import Map from "@/components/Map";
 import { ConfigProvider } from "@/context/ConfigContext";
 import { UIProvider } from "@/context/UIContext";
+import LoginModal from "@/components/LoginModal";
 import DebugPanel from "@/components/DebugPanel";
 import OnboardingModal from "@/components/OnboardingModal";
 
@@ -55,6 +56,7 @@ export default function RootLayout({
               </div>
 
               <DebugPanel />
+              <LoginModal />
               <OnboardingModal />
             </UIProvider>
           </ConfigProvider>

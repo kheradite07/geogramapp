@@ -4,4 +4,5 @@
     <string name="title_activity_main">geogram</string>
     <string name="package_name">com.geogram.app</string>
     <string name="custom_url_scheme">com.geogram.app</string>
+    <string name="server_client_id">10634920795-ufuhjo447jjlkfmpgjucebouj6h5n4vc.apps.googleusercontent.com</string>
 </resources>

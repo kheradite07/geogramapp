@@ -10,6 +10,7 @@ import { useUI } from "@/context/UIContext";
 
 // Slot machine text animation component
 function SignInPrompt() {
+    const { setLoginModalOpen } = useUI();
     return (
         <div style={{
             display: 'flex',
@@ -20,7 +21,7 @@ function SignInPrompt() {
         }}>
             {/* Liquid glass button */}
             <button
-                onClick={() => signIn()}
+                onClick={() => setLoginModalOpen(true)}
                 style={{
                     position: 'relative',
                     padding: '16px 40px',
@@ -93,7 +94,7 @@ export default function InputBar() {
     const { data: session } = useSession();
 
     const { maxChars } = useConfig();
-    const { isMessageDetailsOpen } = useUI();
+    const { isMessageDetailsOpen, setLoginModalOpen } = useUI();
 
     // Typewriter Effect State
     const [placeholder, setPlaceholder] = useState("");

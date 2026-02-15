@@ -65,11 +65,19 @@ export default function MobileGoogleSignIn() {
         }
     };
 
-    if (!isNative) return null; // Let the page render the web button
+    // if (!isNative) return null; // REMOVED: We want to show the button on web too for the modal
+
+    const handleClick = () => {
+        if (isNative) {
+            handleNativeLogin();
+        } else {
+            signIn("google", { callbackUrl: "/" });
+        }
+    };
 
     return (
         <button
-            onClick={handleNativeLogin}
+            onClick={handleClick}
             className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-black transition-all bg-white/90 rounded-lg hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white shadow-lg backdrop-blur-sm"
         >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

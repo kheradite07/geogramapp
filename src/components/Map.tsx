@@ -407,11 +407,44 @@ export default function MapComponent() {
     // Viewport bounds for optimization
     const [viewportBounds, setViewportBounds] = useState<mapboxgl.LngLatBounds | null>(null);
 
-    // Update bounds on move end to re-calculate visible messages
+    // Track if we have already centered on user location to prevent loops
+    const hasCentered = useRef(false);
+
+    // Initialize/Restore Map State
+    useEffect(() => {
+        try {
+            const savedState = localStorage.getItem('geogram_map_view_state');
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                if (parsed && typeof parsed.latitude === 'number') {
+                    setViewState(parsed);
+                    hasCentered.current = true; // Assume we are already where we want to be
+                }
+            }
+        } catch (e) {
+            console.error("Failed to restore map state", e);
+        }
+    }, []);
+
+    // Save Map State on Move
     const handleMoveEnd = (evt: any) => {
         if (evt.target) {
             setViewportBounds(evt.target.getBounds());
-            // Also close details if moving
+
+            // Save current state
+            const newState = evt.viewState;
+            setViewState(newState); // Update local state
+
+            // Persist to localStorage
+            try {
+                localStorage.setItem('geogram_map_view_state', JSON.stringify({
+                    latitude: newState.latitude,
+                    longitude: newState.longitude,
+                    zoom: newState.zoom
+                }));
+            } catch (e) {
+                // Ignore storage errors
+            }
         }
     };
 
@@ -735,15 +768,16 @@ export default function MapComponent() {
         }
     }, []);
 
-    // Sync with user location once found
+    // Sync with user location once found (ONLY if not already centered/restored)
     useEffect(() => {
-        if (location) {
+        if (location && !hasCentered.current) {
             setViewState((prev) => ({
                 ...prev,
                 latitude: location.lat,
                 longitude: location.lng,
                 zoom: 15,
             }));
+            hasCentered.current = true;
         }
     }, [location]);
 
