@@ -15,8 +15,16 @@
 html,
 body {
   height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  /* Prevent scrollbars */
+  overscroll-behavior: none;
+  /* Prevent rubber-banding */
+  -webkit-user-select: none;
+  /* Disable text selection */
+  user-select: none;
 }
 
 body {
