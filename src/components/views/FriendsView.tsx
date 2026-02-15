@@ -3,6 +3,7 @@
 import { useUser } from "@/hooks/useUser";
 import { useState } from "react";
 import AuthPrompt from "@/components/AuthPrompt";
+import { Share } from "@capacitor/share";
 import { Users, Search, UserPlus, UserCheck, X, UserMinus, Loader2, Share2 } from "lucide-react";
 
 export default function FriendsView() {
@@ -51,15 +52,27 @@ export default function FriendsView() {
         }
 
         if (typeof navigator !== 'undefined' && navigator.share) {
+            // Try Web Share API first (works on mobile web)
             try {
                 await navigator.share({
                     title: title,
                     text: text,
                 });
+                return;
             } catch (error) {
-                console.log('Error sharing:', error);
+                console.log('Web Share Error:', error);
             }
-        } else {
+        }
+
+        // Try Capacitor Share (Native)
+        try {
+            await Share.share({
+                title: title,
+                text: text,
+                dialogTitle: title,
+            });
+        } catch (error) {
+            console.log('Capacitor Share Error:', error);
             // Fallback for desktop or unsupported browsers
             try {
                 await navigator.clipboard.writeText(text);
