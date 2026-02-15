@@ -23,6 +23,7 @@ const config: CapacitorConfig = {
       scopes: ['profile', 'email'],
       serverClientId: '10634920795-ufuhjo447jjlkfmpgjucebouj6h5n4vc.apps.googleusercontent.com', // Web Client ID from .env
       forceCodeForRefreshToken: true,
+      androidClientId: '10634920795-g7kg310rkho5gnlt7hjrcet8fqa8d3rh.apps.googleusercontent.com',
     },
   }
 };

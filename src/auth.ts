@@ -24,11 +24,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     if (!idToken) throw new Error("No idToken provided")
 
                     const client = new OAuth2Client(process.env.AUTH_GOOGLE_ID)
-                    console.log("Verifying token with Client ID:", process.env.AUTH_GOOGLE_ID);
+                    const audiences = [process.env.AUTH_GOOGLE_ID!];
+                    if (process.env.AUTH_GOOGLE_ANDROID_ID) {
+                        audiences.push(process.env.AUTH_GOOGLE_ANDROID_ID);
+                    }
+                    console.log("Verifying token with Audiences:", audiences);
 
                     const ticket = await client.verifyIdToken({
                         idToken: idToken,
-                        audience: process.env.AUTH_GOOGLE_ID,
+                        audience: audiences,
                     })
                     const payload = ticket.getPayload()
                     console.log("Token verified. Payload:", payload?.email);
