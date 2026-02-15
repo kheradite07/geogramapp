@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { Keyboard } from '@capacitor/keyboard';
 
 type UIState = {
@@ -25,13 +25,19 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 export function UIProvider({ children }: { children: ReactNode }) {
     const [state, setState] = useState<UIState>(defaultState);
 
-    const setMessageDetailsOpen = (isOpen: boolean) => {
-        setState(prev => ({ ...prev, isMessageDetailsOpen: isOpen }));
-    };
+    const setMessageDetailsOpen = useCallback((isOpen: boolean) => {
+        setState(prev => {
+            if (prev.isMessageDetailsOpen === isOpen) return prev;
+            return { ...prev, isMessageDetailsOpen: isOpen };
+        });
+    }, []);
 
-    const setLoginModalOpen = (isOpen: boolean) => {
-        setState(prev => ({ ...prev, isLoginModalOpen: isOpen }));
-    };
+    const setLoginModalOpen = useCallback((isOpen: boolean) => {
+        setState(prev => {
+            if (prev.isLoginModalOpen === isOpen) return prev;
+            return { ...prev, isLoginModalOpen: isOpen };
+        });
+    }, []);
 
     useEffect(() => {
         let showListener: any;
@@ -85,8 +91,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
+    const contextValue = useMemo(() => ({
+        ...state,
+        setMessageDetailsOpen,
+        setLoginModalOpen
+    }), [state, setMessageDetailsOpen, setLoginModalOpen]);
+
     return (
-        <UIContext.Provider value={{ ...state, setMessageDetailsOpen, setLoginModalOpen }}>
+        <UIContext.Provider value={contextValue}>
             {children}
         </UIContext.Provider>
     );

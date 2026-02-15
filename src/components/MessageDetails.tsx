@@ -96,7 +96,7 @@ export default function MessageDetails({
                 marginBottom: "10px"
             }}
         >
-            <div className="bg-[#120024]/95 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-4 md:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+            <div className="bg-[#120024]/95 backdrop-blur-3xl border border-white/10 rounded-[1.5rem] p-3 md:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
                 {/* Content Container */}
                 <div className="space-y-4">
                     {/* Header: User Info with integrated close button */}
@@ -106,7 +106,7 @@ export default function MessageDetails({
                             onClick={() => message.userId && router.push(`/profile?id=${message.userId}`)}
                         >
                             <div className="relative">
-                                <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-br from-purple-500 to-indigo-500">
+                                <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-br from-purple-500 to-indigo-500">
                                     <div className="w-full h-full rounded-full bg-black overflow-hidden relative">
                                         {message.userImage ? (
                                             <img
@@ -115,7 +115,7 @@ export default function MessageDetails({
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-black text-white font-bold">
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-black text-white font-bold text-xs">
                                                 {message.userName.charAt(0).toUpperCase()}
                                             </div>
                                         )}
@@ -124,10 +124,10 @@ export default function MessageDetails({
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-white font-bold text-lg leading-tight truncate group-hover/user:text-purple-300 transition-colors">
+                                <h3 className="text-white font-bold text-base leading-tight truncate group-hover/user:text-purple-300 transition-colors">
                                     {message.userName}
                                 </h3>
-                                <p className="text-white/40 text-xs font-medium truncate">
+                                <p className="text-white/40 text-[10px] font-medium truncate">
                                     {message.isAnonymous ? "Anonymous User" : "View Profile"}
                                 </p>
                             </div>
@@ -168,8 +168,8 @@ export default function MessageDetails({
                     </div>
 
                     {/* Message Body */}
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                        <p className="text-white text-base leading-relaxed font-medium">
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                        <p className="text-white text-sm leading-relaxed font-medium">
                             "{message.text}"
                         </p>
                     </div>

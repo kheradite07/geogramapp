@@ -15,10 +15,10 @@ export default function LoginModal() {
 
     // Auto-close when session is active
     useEffect(() => {
-        if (session) {
+        if (session && isLoginModalOpen) {
             setLoginModalOpen(false);
         }
-    }, [session, setLoginModalOpen]);
+    }, [session, isLoginModalOpen, setLoginModalOpen]);
 
     useEffect(() => {
         setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));

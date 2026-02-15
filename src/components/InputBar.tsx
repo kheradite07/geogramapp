@@ -262,31 +262,51 @@ export default function InputBar() {
                                 </button>
                             </div>
 
-                            <input
-                                type="text"
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
-                                onBlur={() => setIsFocused(false)}
-                                placeholder={location ? `${placeholder}|` : "Waiting for location..."}
-                                disabled={!location}
-                                maxLength={maxChars}
-                                style={{
-                                    flex: 1,
-                                    width: 0, // CRITICAL: Forces flex-basis to 0, allowing flex-grow to work properly
-                                    minWidth: 0, // CRITICAL: Prevents flex item from overflowing container
-                                    padding: '12px 16px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    outline: 'none',
-                                    color: 'white',
-                                    fontSize: '16px',
-                                    fontWeight: 500,
-                                    textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                                    ...((!location || !message.trim()) && { opacity: 0.9 }),
-                                    cursor: !location ? 'not-allowed' : 'text'
-                                }}
-                            />
+                            <div className="flex-1 relative group">
+                                <div className={`absolute inset-0 bg-white/10 rounded-full blur-xl transition-opacity duration-300 ${isFocused ? 'opacity-100' : 'opacity-0'}`} />
+                                <div
+                                    className={`relative flex items-center w-full bg-[#1a0033]/80 backdrop-blur-xl border transition-all duration-300 rounded-full overflow-hidden ${isFocused
+                                        ? 'border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                                        : 'border-white/10 shadow-lg'
+                                        }`}
+                                >
+                                    {/* Typewriter text overlay - Absolute positioned to not affect input layout */}
+                                    {(!message && !isFocused && location) && (
+                                        <div className="absolute inset-0 flex items-center pl-4 pointer-events-none">
+                                            <span className="text-white/50 text-sm font-medium tracking-wide">
+                                                {placeholder}
+                                                <span className="animate-pulse text-purple-400">|</span>
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <input
+                                        type="text"
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        onFocus={() => setIsFocused(true)}
+                                        onBlur={() => setIsFocused(false)}
+                                        placeholder={location ? "" : "Waiting for location..."}
+                                        disabled={!location}
+                                        maxLength={maxChars}
+                                        style={{
+                                            flex: 1,
+                                            width: 0, // CRITICAL: Forces flex-basis to 0, allowing flex-grow to work properly
+                                            minWidth: 0, // CRITICAL: Prevents flex item from overflowing container
+                                            padding: '10px 14px',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            outline: 'none',
+                                            color: 'white',
+                                            fontSize: '14px',
+                                            fontWeight: 500,
+                                            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                                            ...((!location || !message.trim()) && { opacity: 0.9 }),
+                                            cursor: !location ? 'not-allowed' : 'text'
+                                        }}
+                                    />
+                                </div>
+                            </div>
 
                             <button
                                 type="submit"

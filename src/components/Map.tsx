@@ -693,6 +693,27 @@ export default function MapComponent() {
     const [isSearching, setIsSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false); // New state for toggle
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    // Handle Click Outside Search
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (isSearchOpen && searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                // Check if the click was on the toggle button itself (prevent immediate re-close if logic conflicts)
+                // But since toggle button is INSIDE searchRef (when wrapped), or hidden when open...
+                // Actually button is hidden when open. So any click outside is valid close.
+                setIsSearchOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [isSearchOpen]);
 
     // Handle Search
     const handleSearch = async (query: string) => {
@@ -741,7 +762,8 @@ export default function MapComponent() {
         // but flyTo center is simpler for now and cleaner.
 
         setShowResults(false);
-        setSearchQuery(feature.place_name);
+        setSearchQuery(""); // Allow auto-clear
+        setIsSearchOpen(false); // Auto-close
     };
 
     const clearSearch = () => {
@@ -798,7 +820,8 @@ export default function MapComponent() {
         >
             {/* Search Bar Overlay - Top Right */}
             <div
-                className={`absolute top-4 right-4 z-50 transition-all duration-300 ease-in-out ${isSearchOpen ? 'w-[70%] max-w-sm' : 'w-12 h-12'
+                ref={searchRef}
+                className={`fixed top-4 right-4 z-50 transition-[width,height,opacity] duration-300 ease-in-out ${isSearchOpen ? 'w-[calc(100vw-32px)] sm:w-[320px]' : 'w-12 h-12'
                     }`}
             >
                 <div className="relative group flex justify-end">
@@ -816,40 +839,75 @@ export default function MapComponent() {
                     )}
 
                     {/* Expanded State (Input) */}
-                    {isSearchOpen && (
-                        <div className="relative w-full animate-in fade-in zoom-in-95 duration-200">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search className="h-4 w-4 text-purple-300" />
-                            </div>
-                            <input
-                                autoFocus
-                                type="text"
-                                className="block w-full pl-9 pr-9 py-3 bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/50 rounded-full text-base text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-2xl shadow-purple-900/50"
-                                placeholder="Search..."
-                                value={searchQuery}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                onBlur={() => {
-                                    // Delay collapse to allow clicking results
-                                    setTimeout(() => {
-                                        if (!searchQuery) setIsSearchOpen(false);
-                                    }, 200);
-                                }}
-                            />
-                            <button
-                                onClick={() => {
-                                    clearSearch();
-                                    setIsSearchOpen(false);
-                                }}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-300 hover:text-white transition-colors"
+                    {/* Expanded State (Input) */}
+                    <AnimatePresence>
+                        {isSearchOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, width: 0 }}
+                                animate={{ opacity: 1, scale: 1, width: "100%" }}
+                                exit={{ opacity: 0, scale: 0.9, width: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="relative w-full"
                             >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
-                    )}
+                                <form
+                                    onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        // Mobile "Go" or Desktop "Enter"
+                                        if (searchResults.length > 0) {
+                                            handleSelectLocation(searchResults[0]);
+                                        } else if (searchQuery.length > 2) {
+                                            // Fallback: Perform search if no results yet (fast typer)
+                                            try {
+                                                const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json`;
+                                                const params = new URLSearchParams({
+                                                    access_token: MAPBOX_TOKEN || '',
+                                                    types: 'place,country,poi,address',
+                                                    limit: '1',
+                                                    language: 'en'
+                                                });
+                                                const response = await fetch(`${endpoint}?${params}`);
+                                                const data = await response.json();
+                                                if (data.features && data.features.length > 0) {
+                                                    handleSelectLocation(data.features[0]);
+                                                }
+                                            } catch (err) {
+                                                console.error("Fast search failed", err);
+                                            }
+                                        }
+                                    }}
+                                    className="relative w-full"
+                                >
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Search className="h-4 w-4 text-purple-300" />
+                                    </div>
+                                    <input
+                                        autoFocus
+                                        type="text" // 'search' type might show 'x' on some browsers, keeping text for custom style
+                                        enterKeyHint="search"
+                                        className="block w-full pl-9 pr-9 py-3 bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/50 rounded-full text-base text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-2xl shadow-purple-900/50"
+                                        placeholder="Search..."
+                                        value={searchQuery}
+                                        onChange={(e) => handleSearch(e.target.value)}
+                                    // onKeyDown handled by form onSubmit
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            clearSearch();
+                                            setIsSearchOpen(false);
+                                        }}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-300 hover:text-white transition-colors"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </form>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
-                {/* Search Results Dropdown */}
-                {showResults && searchResults.length > 0 && (
+                {/* Search Results Dropdown - Only show if search is OPEN */}
+                {isSearchOpen && showResults && searchResults.length > 0 && (
                     <div className="absolute mt-2 w-full bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/30 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2">
                         <ul>
                             {searchResults.map((result) => (
@@ -876,13 +934,21 @@ export default function MapComponent() {
                     setViewState(evt.viewState);
 
                     // Close details on any zoom change (slow or fast) - ONLY IF USER INITIATED
-                    // We check evt.originalEvent to ensure it's a user interaction (mouse/touch/wheel)
-                    // and not a programmatic resize or flyTo
-                    const isUserInteraction = (evt as any).originalEvent !== undefined;
+                    // We check evt.originalEvent and specifically allow only direct interactions
+                    const originalEvent = (evt as any).originalEvent;
+                    const isUserInteraction = originalEvent &&
+                        ['mousedown', 'mouseup', 'mousemove', 'touchstart', 'touchend', 'touchmove', 'wheel', 'keydown'].includes(originalEvent.type);
 
                     if (isUserInteraction && !isProgrammaticMove.current && selectedMessage && Math.abs(evt.viewState.zoom - previousZoom) > 0.01) {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
+                    }
+
+                    // Close search on map move
+                    if (isUserInteraction && !isProgrammaticMove.current && isSearchOpen) {
+                        setIsSearchOpen(false);
+                        // Optional: Clear search if desired, but just closing is less destructive
+                        // clearSearch(); 
                     }
 
                     // Close friend popup only on user-initiated movement, not programmatic flyTo
@@ -892,11 +958,18 @@ export default function MapComponent() {
                 }}
                 onMoveStart={(evt) => {
                     // Only close on user interaction (drag start), not resize or flyTo
-                    const isUserInteraction = (evt as any).originalEvent !== undefined;
+                    const originalEvent = (evt as any).originalEvent;
+                    const isUserInteraction = originalEvent &&
+                        ['mousedown', 'mouseup', 'mousemove', 'touchstart', 'touchend', 'touchmove', 'wheel', 'keydown'].includes(originalEvent.type);
 
                     if (isUserInteraction && !isProgrammaticMove.current && selectedMessage) {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
+                    }
+
+                    if (isUserInteraction && !isProgrammaticMove.current && isSearchOpen) {
+                        setIsSearchOpen(false); // Also closes results via conditional rendering
+                        // setShowResults(false); // Redundant if parent checks isSearchOpen
                     }
                 }}
                 onMoveEnd={handleMoveEnd}
