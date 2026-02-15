@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.geogram.app',
@@ -22,6 +23,11 @@ const config: CapacitorConfig = {
     GoogleAuth: {
       scopes: ['profile', 'email'],
       forceCodeForRefreshToken: true,
+    },
+    Keyboard: {
+      resize: KeyboardResize.Body,
+      style: KeyboardStyle.Dark,
+      resizeOnFullScreen: true,
     },
   }
 };

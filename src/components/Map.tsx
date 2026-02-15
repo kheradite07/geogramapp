@@ -875,8 +875,12 @@ export default function MapComponent() {
                     const previousZoom = viewState.zoom;
                     setViewState(evt.viewState);
 
-                    // Close details on any zoom change (slow or fast)
-                    if (!isProgrammaticMove.current && selectedMessage && Math.abs(evt.viewState.zoom - previousZoom) > 0.01) {
+                    // Close details on any zoom change (slow or fast) - ONLY IF USER INITIATED
+                    // We check evt.originalEvent to ensure it's a user interaction (mouse/touch/wheel)
+                    // and not a programmatic resize or flyTo
+                    const isUserInteraction = (evt as any).originalEvent !== undefined;
+
+                    if (isUserInteraction && !isProgrammaticMove.current && selectedMessage && Math.abs(evt.viewState.zoom - previousZoom) > 0.01) {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
                     }
@@ -886,8 +890,11 @@ export default function MapComponent() {
                         setSelectedFriend(null);
                     }
                 }}
-                onMoveStart={() => {
-                    if (!isProgrammaticMove.current && selectedMessage) {
+                onMoveStart={(evt) => {
+                    // Only close on user interaction (drag start), not resize or flyTo
+                    const isUserInteraction = (evt as any).originalEvent !== undefined;
+
+                    if (isUserInteraction && !isProgrammaticMove.current && selectedMessage) {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
                     }

@@ -11,12 +11,17 @@ interface BottomMenuProps {
     notificationCount?: number;
 }
 
+import { useUI } from "@/context/UIContext";
+
 export default function BottomMenu({ activeTab, onTabChange, notificationCount }: BottomMenuProps) {
+    const { isKeyboardOpen } = useUI();
     const tabs = [
         { id: "friends", icon: Users, label: "Friends" },
         { id: "map", icon: Map, label: "Map" },
         { id: "settings", icon: Settings, label: "Settings" },
     ] as const;
+
+    if (isKeyboardOpen) return null;
 
     return (
         <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 z-50 pointer-events-none flex justify-center">

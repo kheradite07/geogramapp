@@ -94,7 +94,7 @@ export default function InputBar() {
     const { data: session } = useSession();
 
     const { maxChars } = useConfig();
-    const { isMessageDetailsOpen, setLoginModalOpen } = useUI();
+    const { isMessageDetailsOpen, setLoginModalOpen, isKeyboardOpen } = useUI();
 
     // Typewriter Effect State
     const [placeholder, setPlaceholder] = useState("");
@@ -158,7 +158,7 @@ export default function InputBar() {
                 <div
                     style={{
                         position: 'absolute',
-                        bottom: '230px', // Well above the input bar to prevent overlap
+                        bottom: isKeyboardOpen ? '80px' : '230px', // Adjust position when keyboard is open
                         left: '50%',
                         transform: 'translateX(-50%)',
                         display: 'flex',
@@ -180,7 +180,7 @@ export default function InputBar() {
             <div
                 style={{
                     position: 'absolute',
-                    bottom: '110px', // Moved up to avoid bottom menu overlap
+                    bottom: isKeyboardOpen ? '10px' : '110px', // Move down when keyboard is open (menu hidden)
                     left: 0,
                     right: 0,
                     padding: '0 12px', // Reduced padding for better mobile fit
