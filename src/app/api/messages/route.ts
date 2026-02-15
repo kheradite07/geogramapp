@@ -39,9 +39,21 @@ export async function POST(request: Request) {
             });
 
             if (postsToday >= 3) {
+                // Calculate time until next midnight
+                const now = new Date();
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setHours(0, 0, 0, 0);
+                const timeRemainingMs = tomorrow.getTime() - now.getTime();
+
+                // Format nicely (e.g. "4h 20m")
+                const hours = Math.floor(timeRemainingMs / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
                 return NextResponse.json({
                     error: "Daily post limit reached",
-                    isPremiumCallback: true // Flag for frontend to show premium upsell
+                    isPremiumCallback: true,
+                    resetTime: `${hours}h ${minutes}m`
                 }, { status: 403 });
             }
         }
@@ -60,29 +72,40 @@ export async function POST(request: Request) {
         });
 
         // XP & Leveling Logic
-        // +10 XP per post
-        const xpGain = 10;
-        const newXp = (user.xp || 0) + xpGain;
-        // Simple Level Formula: 1 + floor(xp / 100). Every 100 XP = 1 Level.
-        const newLevel = 1 + Math.floor(newXp / 100);
+        // 5. Update User XP & Level (Gamification)
+        const xpGain = 5; // Default XP per post
+        const newXP = (user.xp || 0) + xpGain;
 
-        if (newXp !== user.xp || newLevel !== user.level) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    xp: newXp,
-                    level: newLevel
-                }
-            });
-        }
+        // Import game logic dynamically or use helper
+        // Since we are in same project, direct import is fine but let's check level
+        // Simulating import here as replace_file context needs full
+        const { getLevelFromXP } = await import("@/lib/gameLogic");
 
-        return NextResponse.json({
-            ...newMessage,
-            userUpdates: {
-                xp: newXp,
+        const oldLevel = user.level || 1;
+        const newLevel = getLevelFromXP(newXP);
+        const hasLeveledUp = newLevel > oldLevel;
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                xp: newXP,
                 level: newLevel,
-                xpGained: xpGain
+                lastLat: lat,
+                lastLng: lng,
+                lastSeen: new Date()
             }
+        });
+
+        // 6. Return success with updates
+        return NextResponse.json({
+            success: true,
+            message: newMessage,
+            userUpdates: {
+                xp: newXP,
+                level: newLevel,
+                xpGain
+            },
+            levelUp: hasLeveledUp
         }, { status: 201 });
     } catch (error) {
         console.error("Error posting message:", error);

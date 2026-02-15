@@ -1,9 +1,14 @@
 "use client";
 
-import { Send, MapPin, Globe, Users } from "lucide-react";
-import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useState, useRef, useEffect } from "react";
+import { Send, MapPin, Calendar, User, Smile, X, Image as ImageIcon, Globe, Users } from "lucide-react";
+
 import { useMessages } from "@/hooks/useMessages";
 import { useLocation } from "@/hooks/useLocation";
+import { useUser } from "@/hooks/useUser"; // Added useUser import
+import LevelUpOverlay from "@/components/LevelUpOverlay"; // Imported LevelUpOverlay
+import DailyLimitModal from "@/components/DailyLimitModal"; // Daily limit modal
 import { useSession, signIn } from "next-auth/react";
 import { useConfig } from "@/context/ConfigContext";
 import { useUI } from "@/context/UIContext";
@@ -137,27 +142,43 @@ export default function InputBar() {
     }, [charIndex, isDeleting, phraseIndex, location]);
 
 
+    const { mutate: mutateUser } = useUser(); // Get user mutator
+
+    // Custom Daily Limit UI State
+    const [limitError, setLimitError] = useState<{ show: boolean, resetTime?: string }>({ show: false });
+    const [showLevelUp, setShowLevelUp] = useState<{ show: boolean, level: number }>({ show: false, level: 1 });
+
+    // Auto-hide limit error after 5 seconds
+    useEffect(() => {
+        if (limitError.show) {
+            const timer = setTimeout(() => setLimitError({ show: false }), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [limitError.show]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!message.trim() || isSending || !location || message.length > maxChars) return;
 
         setIsSending(true);
         // Pass visibility to sendMessage (requires update in hook/API)
-        // We expect sendMessage to return an object { success: boolean, error?: string, isPremiumCallback?: boolean }
+        // We expect sendMessage to return an object { success: boolean, error?: string, isPremiumCallback?: boolean, resetTime?: string }
         const result = await sendMessage(message, location.lat, location.lng, visibility);
 
         // Check for Premium Limit Error (Limit Reached)
         if (result && !result.success && result.isPremiumCallback) {
-            // Basic Alert for now - later can be a modal
-            // Using window.confirm to allow quick navigation
-            if (confirm(result.error || "Daily post limit reached! Upgrade to Premium for unlimited posts.")) {
-                window.location.href = '/settings'; // Force navigation
-            }
+            setLimitError({ show: true, resetTime: result.resetTime });
         } else if (result && !result.success) {
             alert(result.error || "Failed to post message");
         } else {
             // Success
             setMessage("");
+            mutateUser(); // Force refresh user data to update XP/Level
+
+            // Check for Level Up
+            if (result.levelUp && result.userUpdates?.level) {
+                setShowLevelUp({ show: true, level: result.userUpdates.level });
+            }
         }
 
         setIsSending(false);
@@ -201,11 +222,19 @@ export default function InputBar() {
                     paddingBottom: isKeyboardOpen ? 'calc(10px + env(safe-area-inset-bottom))' : '0', // Handle safe area
                     pointerEvents: 'none',
                     display: 'flex',
-                    justifyContent: 'center',
+                    flexDirection: 'column', // Stack error message
+                    alignItems: 'center', // Center content
                     zIndex: 50,
                     transition: 'bottom 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' // smooth transition
                 }}
             >
+                {/* Daily Limit Modal */}
+                {limitError.show && (
+                    <DailyLimitModal
+                        resetTime={limitError.resetTime || 'yarın'}
+                        onClose={() => setLimitError({ show: false })}
+                    />
+                )}
                 <div
                     style={{
                         pointerEvents: 'auto',
@@ -384,6 +413,14 @@ export default function InputBar() {
                     )}
                 </div>
             </div>
+
+            {/* Level Up Overlay */}
+            {showLevelUp.show && (
+                <LevelUpOverlay
+                    level={showLevelUp.level}
+                    onClose={() => setShowLevelUp({ show: false, level: showLevelUp.level })}
+                />
+            )}
         </>
     );
 }

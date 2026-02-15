@@ -26,9 +26,9 @@ export function useMessages() {
 
         if (res.ok) {
             mutate(); // Refresh validation
-            return { success: true, data };
+            return { success: true, data, levelUp: data.levelUp, userUpdates: data.userUpdates };
         } else {
-            return { success: false, error: data.error, isPremiumCallback: data.isPremiumCallback, status: res.status };
+            return { success: false, error: data.error, isPremiumCallback: data.isPremiumCallback, resetTime: data.resetTime, status: res.status };
         }
     };
 

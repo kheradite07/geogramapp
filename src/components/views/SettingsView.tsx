@@ -7,6 +7,7 @@ import { User, Shield, LogOut, Settings } from "lucide-react";
 import { signOut } from "next-auth/react";
 import AuthPrompt from "@/components/AuthPrompt";
 import { supabase } from "@/lib/supabase";
+import { getLevelProgress, getXPForNextLevel, getLevelTitle } from "@/lib/gameLogic";
 
 export default function SettingsView() {
     const { user, toggleAnonymity, toggleLocationPrivacy, isLoading } = useUser();
@@ -103,14 +104,35 @@ export default function SettingsView() {
                 </h1>
 
                 {/* Profile Card & Settings */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-3xl p-6 shadow-2xl backdrop-blur-md group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+                <div className={`relative overflow-hidden border rounded-3xl p-6 shadow-2xl backdrop-blur-md group transition-all duration-500
+                    ${user.isPremium
+                        ? 'bg-gradient-to-br from-yellow-900/40 via-black to-black border-yellow-500/50 shadow-yellow-500/10'
+                        : 'bg-gradient-to-br from-white/5 to-white/[0.02] border-white/10'
+                    }`}
+                >
+                    {user.isPremium && (
+                        <>
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-yellow-500/20 rounded-full blur-[60px] -mr-10 -mt-10 pointer-events-none animate-pulse"></div>
+                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/10 rounded-full blur-[50px] -ml-10 -mb-10 pointer-events-none"></div>
+                        </>
+                    )}
+
+                    {!user.isPremium && (
+                        <>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-500/20 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+                        </>
+                    )}
 
                     {!isEditing && (
                         <button
                             onClick={startEditing}
-                            className="absolute top-4 right-4 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full transition-all border border-white/10 hover:border-white/20 shadow-lg hover:shadow-purple-500/10 active:scale-95 z-10"
+                            className={`absolute top-4 right-4 text-xs font-semibold px-4 py-2 rounded-full transition-all border shadow-lg active:scale-95 z-10
+                                ${user.isPremium
+                                    ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-200 border-yellow-500/30 hover:border-yellow-500/50 hover:shadow-yellow-500/10'
+                                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 hover:shadow-purple-500/10'
+                                }`}
                         >
                             Edit Profile
                         </button>
@@ -120,7 +142,9 @@ export default function SettingsView() {
                         <div className="space-y-5 relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="flex justify-center mb-2">
                                 <div className="relative w-28 h-28 group cursor-pointer transition-transform hover:scale-105">
-                                    <div className="absolute -inset-1 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+                                    <div className={`absolute -inset-1 rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500
+                                        ${user.isPremium ? 'bg-gradient-to-tr from-yellow-500 to-orange-500' : 'bg-gradient-to-tr from-purple-500 to-indigo-500'}`}
+                                    ></div>
                                     <img
                                         src={editForm.image || user.image || "https://via.placeholder.com/150"}
                                         alt="Preview"
@@ -148,22 +172,22 @@ export default function SettingsView() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 ml-1">Full Name</label>
+                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>Full Name</label>
                                     <input
                                         type="text"
                                         value={editForm.name}
                                         onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all shadow-inner"
+                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all shadow-inner"
                                         placeholder="Your Name"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-purple-300 uppercase tracking-wider mb-2 ml-1">Bio</label>
+                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>Bio</label>
                                     <textarea
                                         value={editForm.bio}
                                         onChange={e => setEditForm({ ...editForm, bio: e.target.value })}
-                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50 transition-all shadow-inner min-h-[100px] resize-none"
+                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all shadow-inner min-h-[100px] resize-none"
                                         placeholder="Tell us about yourself..."
                                     />
                                 </div>
@@ -179,7 +203,11 @@ export default function SettingsView() {
                                 <button
                                     onClick={handleSave}
                                     disabled={isSaving || isUploading}
-                                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-purple-900/40 disabled:opacity-50 hover:shadow-purple-500/25"
+                                    className={`flex-1 py-3 text-white rounded-xl text-sm font-semibold transition-all shadow-lg disabled:opacity-50
+                                        ${user.isPremium
+                                            ? 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 shadow-orange-900/40'
+                                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-900/40'
+                                        }`}
                                 >
                                     {isSaving ? "Saving..." : "Save Changes"}
                                 </button>
@@ -187,21 +215,35 @@ export default function SettingsView() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-6 relative z-10">
-                            <div className="relative w-20 h-20 shrink-0">
-                                <div className="absolute -inset-0.5 bg-gradient-to-tr from-purple-500 to-cyan-500 rounded-full blur opacity-75"></div>
-                                <div className="relative w-full h-full rounded-full bg-black p-[2px] overflow-hidden">
+                            <div className="relative w-24 h-24 shrink-0">
+                                <div className={`absolute -inset-1 rounded-full blur opacity-75
+                                    ${user.isPremium ? 'bg-gradient-to-tr from-yellow-500 to-orange-500 animate-pulse' : 'bg-gradient-to-tr from-purple-500 to-cyan-500'}`}
+                                ></div>
+                                <div className="relative w-full h-full rounded-full bg-black p-[3px] overflow-hidden">
                                     {user.image ? (
                                         <img src={user.image} alt={user.name} className="w-full h-full rounded-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white font-bold text-2xl">
+                                        <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-white font-bold text-3xl">
                                             {user.name.charAt(0).toUpperCase()}
                                         </div>
                                     )}
                                 </div>
+                                {user.isPremium && (
+                                    <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full border-2 border-black shadow-lg z-20" title="Premium Member">
+                                        👑
+                                    </div>
+                                )}
                             </div>
-                            <div className="min-w-0">
-                                <h2 className="text-2xl font-bold text-white mb-0.5 truncate leading-tight">{user.fullName || user.name}</h2>
-                                <p className="text-purple-300/80 text-sm font-medium truncate mb-2">@{user.username || user.name.replace(/\s+/g, '').toLowerCase()}</p>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h2 className="text-2xl font-bold text-white truncate leading-tight">{user.fullName || user.name}</h2>
+                                    {user.isPremium && (
+                                        <span className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                            Premium
+                                        </span>
+                                    )}
+                                </div>
+                                <p className={`text-sm font-medium truncate mb-3 ${user.isPremium ? 'text-yellow-200/80' : 'text-purple-300/80'}`}>@{user.username || user.name.replace(/\s+/g, '').toLowerCase()}</p>
                                 {user.bio && (
                                     <p className="text-white/60 text-xs line-clamp-2 leading-relaxed font-light">
                                         {user.bio}
@@ -218,33 +260,43 @@ export default function SettingsView() {
 
                     <div className="flex justify-between items-end mb-2">
                         <div>
-                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">Current Level</div>
-                            <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
-                                {user.level || 1}
-                                {user.isPremium && <span className="text-2xl pt-1">👑</span>}
+                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">Seviye</div>
+                            <div className="flex items-baseline gap-2">
+                                <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
+                                    {user.level || 1}
+                                    {user.isPremium && <span className="text-2xl pt-1">👑</span>}
+                                </div>
+                                <div className="text-lg font-bold text-purple-300/80">
+                                    {getLevelTitle(user.level || 1)}
+                                </div>
                             </div>
                         </div>
                         <div className="text-right">
                             <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">XP Points</div>
-                            <div className="text-xl font-bold text-white font-mono">{user.xp || 0} <span className="text-white/40 text-sm">/ {((user.level || 1) * 100)}</span></div>
+                            <div className="text-xl font-bold text-white font-mono">
+                                {user.xp || 0} <span className="text-white/40 text-sm">/ {getXPForNextLevel(user.level || 1)}</span>
+                            </div>
                         </div>
                     </div>
 
                     {/* XP Progress Bar */}
-                    <div className="relative h-4 bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/5">
+                    <div className="relative h-4 bg-black/60 rounded-full overflow-hidden shadow-inner border border-white/10">
+                        {/* Progress fill */}
                         <div
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 to-indigo-500 shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all duration-1000 ease-out"
-                            style={{ width: `${Math.min(100, ((user.xp || 0) % 100))}%` }} // Simplified percentage logic: XP % 100 for now assuming 100xp per level linear
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.8)] transition-all duration-1000 ease-out z-10"
+                            style={{
+                                width: `${Math.min(100, Math.max(2, (user.xp || 0) / getXPForNextLevel(user.level || 1) * 100))}%`
+                            }}
                         ></div>
                         {/* Shimmer effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full -translate-x-full animate-[shimmer_2s_infinite] z-20 pointer-events-none"></div>
                     </div>
                     <div className="mt-2 text-right text-[10px] text-white/40">
-                        {100 - ((user.xp || 0) % 100)} XP to next level
+                        {Math.ceil(getLevelProgress(user.xp || 0).total - getLevelProgress(user.xp || 0).current)} XP to next level
                     </div>
                 </div>
 
-                {/* Premium Membership Card (If not premium) */}
+                {/* Premium Membership Upsell (Only if NOT premium) */}
                 {!user.isPremium && (
                     <div className="relative overflow-hidden rounded-3xl p-6 shadow-2xl group cursor-pointer border border-yellow-500/30">
                         <div className="absolute inset-0 bg-gradient-to-br from-yellow-900/40 to-black"></div>
