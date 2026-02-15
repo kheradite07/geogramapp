@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">GeoGram</string>
-    <string name="title_activity_main">GeoGram</string>
+    <string name="app_name">geogram</string>
+    <string name="title_activity_main">geogram</string>
     <string name="package_name">com.geogram.app</string>
     <string name="custom_url_scheme">com.geogram.app</string>
 </resources>
