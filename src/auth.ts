@@ -92,6 +92,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Allow localhost explicitly to fix dev environment redirects
             if (url.includes("localhost") || url.includes("127.0.0.1")) return url
             return baseUrl
+        },
+        async session({ session, token }) {
+            if (session.user && token.sub) {
+                session.user.id = token.sub;
+            }
+            return session;
         }
     },
     trustHost: true,

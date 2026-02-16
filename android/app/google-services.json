@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "186738966822",
+    "project_id": "geogram-8ded0",
+    "storage_bucket": "geogram-8ded0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:186738966822:android:4812e564cf026b58cec1e7",
+        "android_client_info": {
+          "package_name": "com.geogram.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLvIQDiyBHEjDWXAFB5SveQ2rtoCaSqrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

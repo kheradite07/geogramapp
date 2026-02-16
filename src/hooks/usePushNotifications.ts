@@ -23,6 +23,16 @@ export function usePushNotifications() {
             }
 
             await PushNotifications.register();
+
+            // Create high-priority channel
+            await PushNotifications.createChannel({
+                id: 'pop-notifications',
+                name: 'Pop Notifications',
+                description: 'Notifications that pop up on screen',
+                importance: 5,
+                visibility: 1,
+                vibration: true,
+            });
         };
 
         const addListeners = async () => {

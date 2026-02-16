@@ -15,6 +15,15 @@ export async function sendNotificationToUser(userId: string, title: string, body
                 title,
                 body,
             },
+            android: {
+                priority: "high" as "high", // 'high' is treated as MAX priority by FCM for Android
+                notification: {
+                    channelId: "pop-notifications",
+                    priority: "high" as "high", // deprecated but good fallback
+                    defaultSound: true,
+                    defaultVibrateTimings: true
+                }
+            },
             data,
             tokens: tokens.map(t => t.token),
         };

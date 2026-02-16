@@ -113,6 +113,21 @@ export async function POST(
             }
         });
 
+        // Send notification to message author if it's not the commenter
+        if (message.userId && message.userId !== user.id) {
+            const { sendNotificationToUser } = await import("@/lib/notifications");
+            await sendNotificationToUser(
+                message.userId,
+                "New Comment",
+                `${user.name || "Someone"} commented on your post: "${content.trim().substring(0, 50)}${content.trim().length > 50 ? '...' : ''}"`,
+                {
+                    type: 'comment',
+                    messageId: messageId,
+                    commentId: comment.id
+                }
+            );
+        }
+
         return NextResponse.json(comment, { status: 201 });
     } catch (error) {
         console.error("Error creating comment:", error);

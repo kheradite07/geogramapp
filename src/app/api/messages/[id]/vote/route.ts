@@ -7,7 +7,10 @@ export async function POST(
 ) {
     try {
         const session = await auth();
+        console.log("Vote API - Session:", JSON.stringify(session));
+
         if (!session || !session.user) {
+            console.error("Vote API - Unauthorized: No session or user");
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
@@ -88,6 +91,29 @@ export async function POST(
                 dislikedBy: JSON.stringify(dislikedBy)
             }
         });
+
+        // Send notification if a NEW vote was added (and not by the author)
+        // We check if the count increased to determine if it was a new vote
+        const isNewLike = action === 'like' && likes > (message.likes || 0);
+        const isNewDislike = action === 'dislike' && dislikes > (message.dislikes || 0);
+
+        if ((isNewLike || isNewDislike) && message.userId && message.userId !== userId) {
+            const { sendNotificationToUser } = await import("@/lib/notifications");
+            const voterName = session.user.name || "Someone";
+            const title = isNewLike ? "New Like" : "New Dislike";
+            const body = `${voterName} ${isNewLike ? "liked" : "disliked"} your post.`;
+
+            await sendNotificationToUser(
+                message.userId,
+                title,
+                body,
+                {
+                    type: 'vote',
+                    messageId: id,
+                    action: action
+                }
+            );
+        }
 
         return new Response(JSON.stringify(updatedMessage), { status: 200 });
     } catch (error) {
