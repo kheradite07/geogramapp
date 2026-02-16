@@ -72,6 +72,8 @@ model User {
   // Friendship Logic
   friendsRequested Friendship[] @relation("UserFriendRequestsSent")
   friendsReceived  Friendship[] @relation("UserFriendRequestsReceived")
+  
+  pushTokens       PushToken[]
 }
 
 model VerificationToken {
@@ -136,4 +138,17 @@ model Comment {
   authorName  String
   authorImage String?
   isAnonymous Boolean @default(false)
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String   // "android" | "ios" | "web"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

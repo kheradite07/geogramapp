@@ -37,6 +37,8 @@ export default function MessageDetails({
     const [isLoadingComments, setIsLoadingComments] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const isFriend = getFriendStatus(message.userId) === 'friend';
+
     // Fetch comments
     useEffect(() => {
         const fetchComments = async () => {
@@ -96,7 +98,10 @@ export default function MessageDetails({
                 marginBottom: "10px"
             }}
         >
-            <div className="bg-[#120024]/95 backdrop-blur-3xl border border-white/10 rounded-[1.5rem] p-3 md:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden relative group">
+            <div className={`backdrop-blur-3xl border rounded-[1.5rem] p-3 md:p-5 overflow-hidden relative group transition-colors duration-300 ${isFriend
+                ? 'bg-[#051a0d]/95 border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.2)]'
+                : 'bg-[#120024]/95 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]'
+                }`}>
                 {/* Content Container */}
                 <div className="space-y-4">
                     {/* Header: User Info with integrated close button */}

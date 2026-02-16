@@ -280,19 +280,25 @@ export default function SettingsView() {
                     </div>
 
                     {/* XP Progress Bar */}
-                    <div className="relative h-4 bg-black/60 rounded-full overflow-hidden shadow-inner border border-white/10">
+                    <div className="relative h-7 bg-gray-900/50 backdrop-blur-sm rounded-full overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] border border-white/10 flex items-center justify-center group">
                         {/* Progress fill */}
                         <div
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.8)] transition-all duration-1000 ease-out z-10"
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-800 via-purple-600 to-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-all duration-1000 ease-out z-10"
                             style={{
-                                width: `${Math.min(100, Math.max(2, (user.xp || 0) / getXPForNextLevel(user.level || 1) * 100))}%`
+                                width: `${Math.max(2, getLevelProgress(user.xp || 0).percentage)}%`
                             }}
-                        ></div>
-                        {/* Shimmer effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full -translate-x-full animate-[shimmer_2s_infinite] z-20 pointer-events-none"></div>
-                    </div>
-                    <div className="mt-2 text-right text-[10px] text-white/40">
-                        {Math.ceil(getLevelProgress(user.xp || 0).total - getLevelProgress(user.xp || 0).current)} XP to next level
+                        >
+                            {/* Glow tip */}
+                            <div className="absolute top-0 right-0 h-full w-[2px] bg-white/50 blur-[2px] shadow-[0_0_10px_white]"></div>
+                        </div>
+
+                        {/* Text inside bar */}
+                        <div className="relative z-20 flex items-center justify-center gap-1.5 h-full w-full text-[10px] font-bold tracking-widest uppercase text-white/90 drop-shadow-md leading-none">
+                            <span className="text-purple-300">
+                                {Math.ceil(getLevelProgress(user.xp || 0).total - getLevelProgress(user.xp || 0).current)} XP
+                            </span>
+                            <span className="opacity-80">to next level</span>
+                        </div>
                     </div>
                 </div>
 

@@ -56,13 +56,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
                     }
                 } else {
                     // Create new request
-                    await prisma.friendship.create({
+                    const newFriendship = await prisma.friendship.create({
                         data: {
                             requesterId: currentUser.id,
                             receiverId: targetUser.id,
                             status: 'pending'
                         }
                     });
+
+                    // Send push notification to target user
+                    const { sendNotificationToUser } = await import("@/lib/notifications");
+                    await sendNotificationToUser(
+                        targetUser.id,
+                        "New Friend Request",
+                        `${currentUser.name || currentUser.username || "Someone"} sent you a friend request.`,
+                        {
+                            type: 'friend_request',
+                            friendshipId: newFriendship.id,
+                            requesterId: currentUser.id
+                        }
+                    );
                 }
                 break;
 

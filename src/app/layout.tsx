@@ -20,6 +20,7 @@ import { UIProvider } from "@/context/UIContext";
 import LoginModal from "@/components/LoginModal";
 import DebugPanel from "@/components/DebugPanel";
 import OnboardingModal from "@/components/OnboardingModal";
+import PushNotificationManager from "@/components/PushNotificationManager";
 
 export const metadata: Metadata = {
   title: "geogram",
@@ -58,6 +59,7 @@ export default function RootLayout({
               <DebugPanel />
               <LoginModal />
               <OnboardingModal />
+              <PushNotificationManager />
             </UIProvider>
           </ConfigProvider>
         </SessionProvider>

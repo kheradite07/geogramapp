@@ -15,6 +15,7 @@ import { UserPlus, Check, Clock, Search, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import MessageDetails from "./MessageDetails";
 import VoteControls from "./VoteControls";
+import MapLayers, { FilterMode } from "./MapLayers";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -180,27 +181,29 @@ const MessageMarker = ({
                 {/* Shine effect */}
                 <div className="bubble-shine" />
 
-                {/* User Avatar */}
-                <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
-                    {/* Premium Crown - Absolute Position Top Right of Avatar */}
-                    {isPremium && (
-                        <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
-                            <span className="text-[10px]">👑</span>
-                        </div>
-                    )}
+                {/* User Avatar - Hide if anonymous */}
+                {!message.isAnonymous && (
+                    <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
+                        {/* Premium Crown - Absolute Position Top Right of Avatar */}
+                        {isPremium && (
+                            <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
+                                <span className="text-[10px]">👑</span>
+                            </div>
+                        )}
 
-                    {message.userImage ? (
-                        <img
-                            src={message.userImage}
-                            alt={message.userName}
-                            className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
-                        />
-                    ) : (
-                        <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
-                            {message.userName.charAt(0).toUpperCase()}
-                        </div>
-                    )}
-                </div>
+                        {message.userImage ? (
+                            <img
+                                src={message.userImage}
+                                alt={message.userName}
+                                className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
+                            />
+                        ) : (
+                            <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
+                                {message.userName.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Content */}
                 <div className="flex flex-col relative z-10 min-w-0 flex-1 message-content">
@@ -209,7 +212,8 @@ const MessageMarker = ({
                     </span>
                     <div className="flex items-center mt-0.5 space-x-2">
                         <span className="message-meta">
-                            {message.userName} • {formatRelativeTime(message.timestamp)}
+                            {!message.isAnonymous && <>{message.userName} • </>}
+                            {formatRelativeTime(message.timestamp)}
                         </span>
                     </div>
                 </div>
@@ -373,6 +377,9 @@ export default function MapComponent() {
     const { user: currentUserData, handleFriendRequest } = useUser();
     const { setMessageDetailsOpen } = useUI();
 
+    const [filterMode, setFilterMode] = useState<FilterMode>('all');
+    const [isLayersOpen, setIsLayersOpen] = useState(false);
+
     // Helper to check friend status
     const getFriendStatus = (targetUserId: string) => {
         if (!currentUserData) return 'none';
@@ -511,6 +518,20 @@ export default function MapComponent() {
         return activeMessages;
     }, [messages, expirationHours, viewportBounds]);
 
+    // Filter messages based on the selected layer mode
+    const filteredMessages = useMemo(() => {
+        if (filterMode === 'friends-locations') return [];
+        if (filterMode === 'friends-posts') {
+            return visibleMessages.filter(msg => {
+                // Check if user is a friend (or self)
+                if (!currentUserData) return false;
+                // 'friend' status means accepted friend
+                return currentUserData.friends.some(f => f.id === msg.userId) || msg.userId === currentUserData.id;
+            });
+        }
+        return visibleMessages;
+    }, [visibleMessages, filterMode, currentUserData]);
+
     // Smart clustering: when zoomed out, identify most-liked post in each region to show as BUBBLE
     // This is "Phase 1" clustering - identifying the Highlights
     const postsToShowAsBubbles = useMemo(() => {
@@ -532,7 +553,7 @@ export default function MapComponent() {
             return score;
         };
 
-        const sortedMessages = [...visibleMessages].sort((a, b) => {
+        const sortedMessages = [...filteredMessages].sort((a, b) => {
             const scoreA = getScore(a);
             const scoreB = getScore(b);
             return scoreB - scoreA;
@@ -548,7 +569,7 @@ export default function MapComponent() {
             // Mark nearby messages as processed FOR THE PURPOSE OF BUBBLE SELECTION
             // If a post is near a bubble, it cannot be another bubble.
             // But it CAN be a dot or part of a dot cluster.
-            for (const other of visibleMessages) {
+            for (const other of filteredMessages) {
                 if (other.id === msg.id || processed.has(other.id)) continue;
 
                 const latDiff = Math.abs(other.lat - msg.lat);
@@ -561,12 +582,12 @@ export default function MapComponent() {
         }
 
         return bubbleSet;
-    }, [visibleMessages, viewState.zoom, viewState.latitude, clusterRadius]);
+    }, [filteredMessages, viewState.zoom, viewState.latitude, clusterRadius]);
 
     // Identify Dots (Messages that are NOT Bubbles)
     const visibleDots = useMemo(() => {
-        return visibleMessages.filter(msg => !postsToShowAsBubbles.has(msg.id));
-    }, [visibleMessages, postsToShowAsBubbles]);
+        return filteredMessages.filter(msg => !postsToShowAsBubbles.has(msg.id));
+    }, [filteredMessages, postsToShowAsBubbles]);
 
     // Secondary Clustering: Cluster the Dots
     // "Phase 2" clustering - grouping the Lowlights
@@ -638,7 +659,7 @@ export default function MapComponent() {
         const threshold = 0.02 / Math.pow(2, viewState.zoom - 12); // Adjust threshold based on zoom
 
         return new Set(
-            visibleMessages
+            filteredMessages
                 .filter(msg => {
                     const latDiff = Math.abs(msg.lat - centerLat);
                     const lngDiff = Math.abs(msg.lng - centerLng);
@@ -646,7 +667,7 @@ export default function MapComponent() {
                 })
                 .map(msg => msg.id)
         );
-    }, [visibleMessages, viewState.latitude, viewState.longitude, viewState.zoom]);
+    }, [filteredMessages, viewState.latitude, viewState.longitude, viewState.zoom]);
 
     // Handle voting
     const handleVote = async (id: string, action: 'like' | 'dislike', unlimited: boolean) => {
@@ -708,15 +729,21 @@ export default function MapComponent() {
     const [showResults, setShowResults] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false); // New state for toggle
     const searchRef = useRef<HTMLDivElement>(null);
+    const layersRef = useRef<HTMLDivElement>(null);
 
-    // Handle Click Outside Search
+    // Handle Click Outside Search & Layers
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (isSearchOpen && searchRef.current && !searchRef.current.contains(event.target as Node)) {
-                // Check if the click was on the toggle button itself (prevent immediate re-close if logic conflicts)
-                // But since toggle button is INSIDE searchRef (when wrapped), or hidden when open...
-                // Actually button is hidden when open. So any click outside is valid close.
+            const target = event.target as Node;
+
+            // Close Search if click is outside
+            if (isSearchOpen && searchRef.current && !searchRef.current.contains(target)) {
                 setIsSearchOpen(false);
+            }
+
+            // Close Layers if click is outside
+            if (isLayersOpen && layersRef.current && !layersRef.current.contains(target)) {
+                setIsLayersOpen(false);
             }
         };
 
@@ -727,7 +754,7 @@ export default function MapComponent() {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('touchstart', handleClickOutside);
         };
-    }, [isSearchOpen]);
+    }, [isSearchOpen, isLayersOpen]);
 
     // Handle Search
     const handleSearch = async (query: string) => {
@@ -832,6 +859,17 @@ export default function MapComponent() {
                 cursor: isSimulationMode ? 'crosshair' : 'default'
             }}
         >
+            {/* Map Layers Filter - Left Side */}
+            {/* Map Layers Filter - Left Side */}
+            <div ref={layersRef}>
+                <MapLayers
+                    currentFilter={filterMode}
+                    onFilterChange={setFilterMode}
+                    isOpen={isLayersOpen}
+                    onToggle={() => setIsLayersOpen(!isLayersOpen)}
+                />
+            </div>
+
             {/* Search Bar Overlay - Top Right */}
             <div
                 ref={searchRef}
@@ -965,6 +1003,11 @@ export default function MapComponent() {
                         // clearSearch(); 
                     }
 
+                    // Close layers on map move
+                    if (isUserInteraction && !isProgrammaticMove.current && isLayersOpen) {
+                        setIsLayersOpen(false);
+                    }
+
                     // Close friend popup only on user-initiated movement, not programmatic flyTo
                     if (selectedFriend && !isProgrammaticMove.current) {
                         setSelectedFriend(null);
@@ -984,6 +1027,10 @@ export default function MapComponent() {
                     if (isUserInteraction && !isProgrammaticMove.current && isSearchOpen) {
                         setIsSearchOpen(false); // Also closes results via conditional rendering
                         // setShowResults(false); // Redundant if parent checks isSearchOpen
+                    }
+
+                    if (isUserInteraction && !isProgrammaticMove.current && isLayersOpen) {
+                        setIsLayersOpen(false);
                     }
                 }}
                 onMoveEnd={handleMoveEnd}
@@ -1032,6 +1079,7 @@ export default function MapComponent() {
                     } else {
                         setSelectedMessage(null);
                         setMessageDetailsOpen(false);
+                        setIsLayersOpen(false); // Close layers on map click
                     }
                 }}
             >
@@ -1042,8 +1090,8 @@ export default function MapComponent() {
                     </Marker>
                 )}
 
-                {/* Friend Markers */}
-                {currentUserData?.friends?.map((friend) => (
+                {/* Friend Markers - Only show if mode is ALL or FRIEND LOCATIONS */}
+                {(filterMode === 'all' || filterMode === 'friends-locations') && currentUserData?.friends?.map((friend) => (
                     friend.lastLat && friend.lastLng ? (
                         <Marker
                             key={`friend-${friend.id}`}
@@ -1070,11 +1118,11 @@ export default function MapComponent() {
                         >
                             <div className="group relative cursor-pointer" onClick={(e) => e.stopPropagation()}>
                                 <div className="relative">
-                                    <div className="w-10 h-10 rounded-full border-2 border-purple-500 shadow-lg overflow-hidden bg-black relative transform transition-transform group-hover:scale-110">
+                                    <div className="w-10 h-10 rounded-full border-2 border-green-500 shadow-lg overflow-hidden bg-black relative transform transition-transform group-hover:scale-110">
                                         {friend.image ? (
                                             <img src={friend.image} alt={friend.name} className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-purple-600 text-white font-bold">
+                                            <div className="w-full h-full flex items-center justify-center bg-green-600 text-white font-bold">
                                                 {friend.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
@@ -1086,7 +1134,7 @@ export default function MapComponent() {
                                         }`}></div>
                                 </div>
                                 {/* Tooltip - Absolutely positioned to not affect anchor */}
-                                <div className="absolute top-full mt-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center whitespace-nowrap pointer-events-none">
+                                <div className="absolute top-full mt-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-green-500/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center whitespace-nowrap pointer-events-none">
                                     <span className="text-[10px] text-white font-medium">{friend.name}</span>
                                     {friend.lastSeen && (
                                         <span className="text-[9px] text-gray-300">
@@ -1151,7 +1199,7 @@ export default function MapComponent() {
 
                 {/* 1. BUBBLES: Posts to show as full bubbles */}
                 <AnimatePresence>
-                    {visibleMessages.filter(msg => postsToShowAsBubbles.has(msg.id)).map((msg, index) => (
+                    {filteredMessages.filter(msg => postsToShowAsBubbles.has(msg.id)).map((msg, index) => (
                         <Marker
                             key={`bubble-${msg.id}`}
                             latitude={msg.lat}
