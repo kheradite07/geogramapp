@@ -21,10 +21,14 @@ export default function BottomMenu({ activeTab, onTabChange, notificationCount }
         { id: "settings", icon: Settings, label: "Settings" },
     ] as const;
 
-    if (isKeyboardOpen) return null;
-
     return (
-        <div className="fixed bottom-0 left-0 right-0 p-3 z-60 pointer-events-none flex justify-center" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}>
+        <div
+            className="fixed bottom-0 left-0 right-0 p-3 z-60 pointer-events-none flex justify-center transition-opacity duration-200"
+            style={{
+                paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
+                display: isKeyboardOpen ? 'none' : 'flex'
+            }}
+        >
             <motion.div
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
