@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "concurrently \"npm run dev\" \"local-ssl-proxy --source 3001 --target 3000 --cert certificates/localhost.pem --key certificates/localhost-key.pem\"",
     "build": "prisma generate && next build",
     "mobile:build": "node scripts/build-mobile.js",
     "start": "next start",
@@ -45,8 +46,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.24",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "local-ssl-proxy": "^2.0.5",
     "postcss": "^8.5.6",
     "prisma": "^5.22.0",
     "tailwindcss": "^4.1.18",

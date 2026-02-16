@@ -52,6 +52,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
                 });
                 hideListener = await Keyboard.addListener('keyboardWillHide', () => {
                     setState(prev => ({ ...prev, isKeyboardOpen: false }));
+                    // Force scroll to top when keyboard closes to prevent layout issues
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 });
             } catch (e) {
                 // console.warn("Keyboard plugin not available");
@@ -70,8 +72,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
                 if (viewport.height > maxHeight) maxHeight = viewport.height;
 
                 const isKeyboardVisible = (maxHeight - viewport.height) > 150;
+
                 setState(prev => {
+                    // Only update if state actually changes to avoid re-renders
                     if (prev.isKeyboardOpen !== isKeyboardVisible) {
+                        // If closing keyboard via viewport detection, also scroll to top
+                        if (!isKeyboardVisible && prev.isKeyboardOpen) {
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
                         return { ...prev, isKeyboardOpen: isKeyboardVisible };
                     }
                     return prev;
