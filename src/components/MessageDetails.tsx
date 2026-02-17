@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import VoteControls from "./VoteControls";
 import { customMapStyle } from "@/lib/mapboxStyle"; // Import Style
 import Map from "react-map-gl/mapbox"; // Import Map
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+interface InstagramStoriesPlugin {
+    shareToStory(options: { base64: string }): Promise<void>;
+}
+const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStories');
 import { toPng } from "html-to-image";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -144,21 +149,16 @@ export default function MessageDetails({
 
                 if (socialSharing) {
                     if (platform === 'instagram') {
-                        // Attempt to share to Instagram App (com.instagram.android)
-                        const appPackage = Capacitor.getPlatform() === 'android' ? 'com.instagram.android' : 'instagram';
-
-                        socialSharing.shareVia(
-                            appPackage,
-                            null, // message
-                            null, // subject
-                            dataUrl, // file
-                            null, // link
-                            () => { console.log("Instagram share success"); },
-                            (err: any) => {
-                                console.error("Instagram specific share failed, falling back", err);
-                                genericShare(dataUrl);
-                            }
-                        );
+                        // Native Plugin Call
+                        try {
+                            await InstagramStories.shareToStory({ base64: dataUrl });
+                            console.log("Instagram share initiated via native plugin");
+                        } catch (err: any) {
+                            console.error("Instagram Native Plugin Failed:", err);
+                            // Fallback? Maybe, but usually if plugin fails, it means app not installed or error writing file.
+                            // We can try generic share as last resort.
+                            genericShare(dataUrl);
+                        }
                     } else if (platform === 'whatsapp') {
                         // WhatsApp Logic
                         socialSharing.shareViaWhatsApp(
