@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { formatRelativeTime } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import VoteControls from "./VoteControls";
@@ -589,6 +590,76 @@ export default function MessageDetails({
 
                 </div>
             </div>
+
+            {/* Custom Share Menu Bottom Sheet */}
+            {showShareMenu && typeof document !== 'undefined' && createPortal(
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key="backdrop"
+                        className="fixed inset-0 z-[9999] bg-black/60 pointer-events-auto"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowShareMenu(false)}
+                    />
+                    <motion.div
+                        key="sheet"
+                        className="fixed bottom-0 left-0 right-0 z-[10000] bg-[#1a0033] rounded-t-3xl p-6 pointer-events-auto ring-1 ring-white/10 pb-10"
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    >
+                        <div className="flex flex-col gap-4">
+                            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
+                            <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
+
+                            <div className="grid grid-cols-4 gap-4 justify-items-center">
+                                {/* Instagram Option */}
+                                <button
+                                    onClick={() => handleShareAction('instagram')}
+                                    className="flex flex-col items-center gap-2 group w-full"
+                                >
+                                    <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                        <Icons.Instagram className="w-7 h-7 text-white" />
+                                    </div>
+                                    <span className="text-xs text-white/80">Stories</span>
+                                </button>
+
+                                {/* WhatsApp Option */}
+                                <button
+                                    onClick={() => handleShareAction('whatsapp')}
+                                    className="flex flex-col items-center gap-2 group w-full"
+                                >
+                                    <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                        <Icons.WhatsApp className="w-7 h-7 text-white" />
+                                    </div>
+                                    <span className="text-xs text-white/80">WhatsApp</span>
+                                </button>
+
+                                {/* System Option */}
+                                <button
+                                    onClick={() => handleShareAction('system')}
+                                    className="flex flex-col items-center gap-2 group w-full"
+                                >
+                                    <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                        <Icons.More className="w-7 h-7 text-white" />
+                                    </div>
+                                    <span className="text-xs text-white/80">More</span>
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setShowShareMenu(false)}
+                                className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </motion.div>
+                </AnimatePresence>,
+                document.body
+            )}
         </motion.div>
     );
 }
