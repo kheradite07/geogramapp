@@ -144,33 +144,30 @@ export default function MessageDetails({
 
                 if (socialSharing) {
                     if (platform === 'instagram') {
-                        // Instagram Stories Logic
-                        if (Capacitor.getPlatform() === 'android') {
-                            socialSharing.shareVia(
-                                'com.instagram.share.ADD_TO_STORY',
-                                null, null, dataUrl, null,
-                                () => { },
-                                (err: any) => {
-                                    console.error("Story share failed, trying standard instagram share", err);
-                                    socialSharing.shareViaInstagram("", dataUrl, null, () => { }, (err: any) => { genericShare(dataUrl) });
-                                }
-                            );
-                        } else {
-                            // iOS
-                            socialSharing.shareViaInstagram("", dataUrl, null, () => { }, (err: any) => {
-                                console.error("iOS Instagram share failed", err);
+                        // Attempt to share to Instagram App (com.instagram.android)
+                        const appPackage = Capacitor.getPlatform() === 'android' ? 'com.instagram.android' : 'instagram';
+
+                        socialSharing.shareVia(
+                            appPackage,
+                            null, // message
+                            null, // subject
+                            dataUrl, // file
+                            null, // link
+                            () => { console.log("Instagram share success"); },
+                            (err: any) => {
+                                console.error("Instagram specific share failed, falling back", err);
                                 genericShare(dataUrl);
-                            });
-                        }
+                            }
+                        );
                     } else if (platform === 'whatsapp') {
                         // WhatsApp Logic
                         socialSharing.shareViaWhatsApp(
-                            `Check out this post by ${message.userName} on Geogram!`,
-                            dataUrl,
-                            null,
-                            () => { },
+                            `Check out this snapshot!`, // Message
+                            dataUrl, // File (Image)
+                            null,    // Link
+                            () => { console.log("WhatsApp share success"); },
                             (err: any) => {
-                                console.error("WhatsApp share failed", err);
+                                alert("WhatsApp Error: " + JSON.stringify(err));
                                 genericShare(dataUrl);
                             }
                         );
@@ -595,60 +592,73 @@ export default function MessageDetails({
 
             {/* Custom Share Menu Bottom Sheet */}
             {showShareMenu && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 z-[2147483647] flex items-end justify-center pointer-events-auto">
-                    <div
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key="backdrop"
+                        className="fixed inset-0 z-[2147483647] bg-black/60 pointer-events-auto"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         onClick={() => setShowShareMenu(false)}
                     />
-                    <div className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200">
-                        <div className="flex flex-col gap-4">
-                            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
-                            <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
+                    <motion.div
+                        key="sheet"
+                        className="fixed bottom-0 left-0 right-0 z-[2147483647] pointer-events-none flex justify-center"
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    >
+                        <div className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200">
+                            <div className="flex flex-col gap-4">
+                                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
+                                <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
 
-                            <div className="grid grid-cols-4 gap-4 justify-items-center">
-                                {/* Instagram Option */}
-                                <button
-                                    onClick={() => handleShareAction('instagram')}
-                                    className="flex flex-col items-center gap-2 group w-full"
-                                >
-                                    <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                        <Icons.Instagram className="w-7 h-7 text-white" />
-                                    </div>
-                                    <span className="text-xs text-white/80">Stories</span>
-                                </button>
+                                <div className="grid grid-cols-4 gap-4 justify-items-center">
+                                    {/* Instagram Option */}
+                                    <button
+                                        onClick={() => handleShareAction('instagram')}
+                                        className="flex flex-col items-center gap-2 group w-full"
+                                    >
+                                        <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                            <Icons.Instagram className="w-7 h-7 text-white" />
+                                        </div>
+                                        <span className="text-xs text-white/80">Stories</span>
+                                    </button>
 
-                                {/* WhatsApp Option */}
-                                <button
-                                    onClick={() => handleShareAction('whatsapp')}
-                                    className="flex flex-col items-center gap-2 group w-full"
-                                >
-                                    <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                        <Icons.WhatsApp className="w-7 h-7 text-white" />
-                                    </div>
-                                    <span className="text-xs text-white/80">WhatsApp</span>
-                                </button>
+                                    {/* WhatsApp Option */}
+                                    <button
+                                        onClick={() => handleShareAction('whatsapp')}
+                                        className="flex flex-col items-center gap-2 group w-full"
+                                    >
+                                        <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                            <Icons.WhatsApp className="w-7 h-7 text-white" />
+                                        </div>
+                                        <span className="text-xs text-white/80">WhatsApp</span>
+                                    </button>
 
-                                {/* System Option */}
+                                    {/* System Option */}
+                                    <button
+                                        onClick={() => handleShareAction('system')}
+                                        className="flex flex-col items-center gap-2 group w-full"
+                                    >
+                                        <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                            <Icons.More className="w-7 h-7 text-white" />
+                                        </div>
+                                        <span className="text-xs text-white/80">More</span>
+                                    </button>
+                                </div>
+
                                 <button
-                                    onClick={() => handleShareAction('system')}
-                                    className="flex flex-col items-center gap-2 group w-full"
+                                    onClick={() => setShowShareMenu(false)}
+                                    className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
                                 >
-                                    <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                        <Icons.More className="w-7 h-7 text-white" />
-                                    </div>
-                                    <span className="text-xs text-white/80">More</span>
+                                    Cancel
                                 </button>
                             </div>
-
-                            <button
-                                onClick={() => setShowShareMenu(false)}
-                                className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
-                            >
-                                Cancel
-                            </button>
                         </div>
-                    </div>
-                </div>,
+                    </motion.div>
+                </AnimatePresence>,
                 document.body
             )}
         </motion.div>
