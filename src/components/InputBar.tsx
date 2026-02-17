@@ -36,7 +36,7 @@ function SignInPrompt() {
                     color: 'white',
                     border: '1px solid rgba(255, 255, 255, 0.3)',
                     borderRadius: '9999px',
-                    fontSize: '18px',
+                    fontSize: '16px', // PREVENT IOS ZOOM (Must be >= 16px)
                     fontWeight: 700,
                     cursor: 'pointer',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
@@ -341,7 +341,7 @@ export default function InputBar() {
                                             border: 'none',
                                             outline: 'none',
                                             color: 'white',
-                                            fontSize: '14px',
+                                            fontSize: '16px', // PREVENT IOS ZOOM (Must be >= 16px)
                                             fontWeight: 500,
                                             textShadow: '0 2px 4px rgba(0,0,0,0.5)',
                                             ...((!location || !message.trim()) && { opacity: 0.9 }),

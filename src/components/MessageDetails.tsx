@@ -264,7 +264,7 @@ export default function MessageDetails({
                                         (e.target as HTMLInputElement).focus();
                                     }}
                                     placeholder="Write a comment..."
-                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 pointer-events-auto cursor-text"
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 pointer-events-auto cursor-text"
                                     style={{ pointerEvents: 'auto' }}
                                     disabled={isSubmitting}
                                     autoComplete="off"

@@ -140,7 +140,7 @@ export default function FriendsView() {
                             onFocus={() => setIsSearchFocused(true)}
                             onBlur={() => setIsSearchFocused(false)}
                             placeholder="Find friends..."
-                            className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl py-4 px-5 text-white placeholder-white/30 focus:outline-none focus:ring-0 focus:border-white/30 transition-all shadow-inner"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all shadow-inner"
                             style={isSearchFocused ? {
                                 paddingLeft: '56px',
                                 color: 'white'

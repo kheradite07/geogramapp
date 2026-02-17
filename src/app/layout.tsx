@@ -25,6 +25,11 @@ import PushNotificationManager from "@/components/PushNotificationManager";
 export const metadata: Metadata = {
   title: "geogram",
   description: "Connect with friends on the map",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "geogram",
+  },
 };
 
 export const viewport = {
@@ -34,6 +39,7 @@ export const viewport = {
   userScalable: false,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
+  themeColor: "#1a0033", // Brand Purple
 };
 
 export default function RootLayout({

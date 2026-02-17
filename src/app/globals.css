@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #1a0033;
+  /* Brand Purple */
+  --foreground: #ededed;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #1a0033;
+    /* Brand Purple */
     --foreground: #ededed;
   }
 }
@@ -15,7 +17,10 @@
 html,
 body {
   height: 100%;
-  height: 100dvh;
+  background-color: #1a0033;
+  /* Brand Purple */
+  height: 100vh;
+  /* Use vh to extend behind Safari address bar for transparency */
   width: 100%;
   margin: 0;
   padding: 0;
@@ -25,13 +30,21 @@ body {
   /* Prevent rubber-banding */
   -webkit-user-select: none;
   /* Disable text selection */
+  /* Disable text selection */
   user-select: none;
+  /* Disable double-tap zoom */
+  touch-action: manipulation;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+  /* Nuclear Scroll Lock */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* Ensure Mapbox canvas renders properly */
