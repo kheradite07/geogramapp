@@ -47,6 +47,14 @@
         </provider>
     </application>
 
+    <!-- Required for Android 11+ to check if Instagram is installed -->
+    <queries>
+        <package android:name="com.instagram.android" />
+        <intent>
+            <action android:name="com.instagram.share.ADD_TO_STORY" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

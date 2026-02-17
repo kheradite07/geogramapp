@@ -1,18 +1,25 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { Message, Comment } from "@/lib/store";
-import { Check, Clock, UserPlus, X, Send, Share as ShareIcon } from "lucide-react";
-import { Share } from "@capacitor/share";
-import { Filesystem, Directory } from "@capacitor/filesystem";
-import { toPng } from "html-to-image";
-import { Capacitor } from "@capacitor/core";
-import Map from "react-map-gl/mapbox"; // Import Map
-import { customMapStyle } from "@/lib/mapboxStyle"; // Import Style
-import VoteControls from "./VoteControls";
-import { useRouter } from "next/navigation";
-import { formatRelativeTime } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { formatRelativeTime } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import VoteControls from "./VoteControls";
+import { customMapStyle } from "@/lib/mapboxStyle"; // Import Style
+import Map from "react-map-gl/mapbox"; // Import Map
+import { Capacitor } from "@capacitor/core";
+import { toPng } from "html-to-image";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { Check, Clock, UserPlus, X, Send, Share as ShareIcon, Instagram, MoreHorizontal, MessageCircle, Heart, MoreVertical, Flag, Ban } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Message, Comment } from "@/lib/store";
+
+// Consolidating icons to avoid conflicts
+const Icons = {
+    Instagram: Instagram,
+    WhatsApp: MessageCircle, // Use MessageCircle as placeholder or custom SVG
+    More: MoreHorizontal,
+    Share: ShareIcon,
+    Close: X
+};
 
 interface MessageDetailsProps {
     message: Message;
@@ -91,75 +98,95 @@ export default function MessageDetails({
 
     // Share Functionality
     const [isSharing, setIsSharing] = useState(false);
+    const [showShareMenu, setShowShareMenu] = useState(false);
 
-    const handleShare = async (e: React.MouseEvent) => {
-        e.stopPropagation();
+    // Initial Share Click -> Open Menu
+    const handleShareClick = () => {
+        if (!Capacitor.isNativePlatform()) {
+            // Web: Just do generic share immediately
+            handleShareAction('system');
+            return;
+        }
+        setShowShareMenu(true);
+    };
+
+    const handleShareAction = async (platform: 'instagram' | 'whatsapp' | 'system') => {
         if (isSharing) return;
         setIsSharing(true);
 
         try {
             await new Promise(resolve => setTimeout(resolve, 100)); // Small yield
 
+            // Wait a bit for map to ensure tiles are ready
+            // Only need to wait if we haven't waited before, but safe to wait a bit
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for map tiles
+
+            // Execution Logic (Moved from old handleShare)
+            // 1. Generate Image
             const shareElement = document.getElementById(`share-card-${message.id}`);
             if (!shareElement) {
                 console.error("Share element not found");
                 return;
             }
 
-            // Wait a bit for map to ensure tiles are ready (since we switched to real Map component)
-            // In a production app, we might check map 'idle' event, but a delay helps here.
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // Generate Image
             const dataUrl = await toPng(shareElement, {
                 quality: 0.95,
                 pixelRatio: 2,
-                // Ensure we capture WebGL content (the Map)
                 filter: (node) => true,
             });
 
-            // 3. Share based on Platform
+            // 2. Platform Specific Handling
             if (Capacitor.isNativePlatform()) {
-                // Try to share directly to Instagram first (User request: "Instagram stories priority")
-                // We use cordova-plugin-x-socialsharing for this
                 const socialSharing = (window as any).plugins?.socialsharing;
 
                 if (socialSharing) {
-                    // Check if we can share to Instagram
-                    socialSharing.canShareVia('instagram', 'Check', null, dataUrl, null,
-                        (e: any) => {
-                            // Success callback for canShareVia - implies Instagram is installed
-                            // Attempt to share specifically to Instagram
-                            socialSharing.shareViaInstagram(
-                                "", // Message - often ignored or copied to clipboard
-                                dataUrl, // Image
-                                null, // URL
-                                () => {
-                                    setIsSharing(false); // Success
-                                },
+                    if (platform === 'instagram') {
+                        // Instagram Stories Logic
+                        if (Capacitor.getPlatform() === 'android') {
+                            socialSharing.shareVia(
+                                'com.instagram.share.ADD_TO_STORY',
+                                null, null, dataUrl, null,
+                                () => { },
                                 (err: any) => {
-                                    console.error("Instagram share failed", err);
-                                    // Fallback to generic share on error
-                                    genericShare(dataUrl);
+                                    console.error("Story share failed, trying standard instagram share", err);
+                                    socialSharing.shareViaInstagram("", dataUrl, null, () => { }, (err: any) => { genericShare(dataUrl) });
                                 }
                             );
-                        },
-                        (e: any) => {
-                            console.log("Instagram not available, falling back");
-                            genericShare(dataUrl);
+                        } else {
+                            // iOS
+                            socialSharing.shareViaInstagram("", dataUrl, null, () => { }, (err: any) => {
+                                console.error("iOS Instagram share failed", err);
+                                genericShare(dataUrl);
+                            });
                         }
-                    );
+                    } else if (platform === 'whatsapp') {
+                        // WhatsApp Logic
+                        socialSharing.shareViaWhatsApp(
+                            `Check out this post by ${message.userName} on Geogram!`,
+                            dataUrl,
+                            null,
+                            () => { },
+                            (err: any) => {
+                                console.error("WhatsApp share failed", err);
+                                genericShare(dataUrl);
+                            }
+                        );
+                    } else {
+                        // System / Fallback
+                        await genericShare(dataUrl);
+                    }
                 } else {
                     console.warn("SocialSharing plugin not found");
-                    genericShare(dataUrl);
+                    await genericShare(dataUrl);
                 }
             } else {
                 // Web Share
-                genericShare(dataUrl);
+                await genericShare(dataUrl);
             }
 
         } catch (error) {
             console.error("Error generating/sharing image:", error);
+        } finally {
             setIsSharing(false);
         }
     };
@@ -267,7 +294,7 @@ export default function MessageDetails({
                         <div className="flex items-center gap-2 shrink-0">
                             {/* Share Button (New) */}
                             <button
-                                onClick={handleShare}
+                                onClick={handleShareClick}
                                 disabled={isSharing}
                                 className="p-2 bg-purple-600/20 hover:bg-purple-600/40 rounded-xl text-purple-300 transition-all border border-purple-500/30 disabled:opacity-50"
                             >
