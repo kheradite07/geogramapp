@@ -127,7 +127,7 @@ export default function MessageDetails({
 
             // Wait a bit for map to ensure tiles are ready
             // Only need to wait if we haven't waited before, but safe to wait a bit
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for map tiles
+            await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay for better UX
 
             // Execution Logic (Moved from old handleShare)
             // 1. Generate Image
@@ -160,17 +160,30 @@ export default function MessageDetails({
                             genericShare(dataUrl);
                         }
                     } else if (platform === 'whatsapp') {
-                        // WhatsApp Logic
-                        socialSharing.shareViaWhatsApp(
-                            `Check out this snapshot!`, // Message
-                            dataUrl, // File (Image)
-                            null,    // Link
-                            () => { console.log("WhatsApp share success"); },
-                            (err: any) => {
-                                alert("WhatsApp Error: " + JSON.stringify(err));
-                                genericShare(dataUrl);
-                            }
-                        );
+                        // WhatsApp Logic - Use File URI for reliability
+                        try {
+                            const fileName = `whatsapp-share-${Date.now()}.png`;
+                            const file = await Filesystem.writeFile({
+                                path: fileName,
+                                data: dataUrl,
+                                directory: Directory.Cache
+                            });
+
+                            socialSharing.shareViaWhatsApp(
+                                `Check out this snapshot!`, // Message
+                                file.uri, // File URI (better than Base64)
+                                null,    // Link
+                                () => { console.log("WhatsApp share success"); },
+                                (err: any) => {
+                                    console.error("WhatsApp share failed:", err);
+                                    // Fallback to generic if specific fails
+                                    genericShare(dataUrl);
+                                }
+                            );
+                        } catch (err) {
+                            console.error("WhatsApp File Write Error:", err);
+                            genericShare(dataUrl);
+                        }
                     } else {
                         // System / Fallback
                         await genericShare(dataUrl);
