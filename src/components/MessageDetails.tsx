@@ -108,6 +108,8 @@ export default function MessageDetails({
             handleShareAction('system');
             return;
         }
+        // Debug Alert
+        alert("Debug: Share Button Clicked");
         setShowShareMenu(true);
     };
 
@@ -593,23 +595,12 @@ export default function MessageDetails({
 
             {/* Custom Share Menu Bottom Sheet */}
             {showShareMenu && typeof document !== 'undefined' && createPortal(
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key="backdrop"
-                        className="fixed inset-0 z-[9999] bg-black/60 pointer-events-auto"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                <div className="fixed inset-0 z-[2147483647] flex items-end justify-center pointer-events-auto">
+                    <div
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                         onClick={() => setShowShareMenu(false)}
                     />
-                    <motion.div
-                        key="sheet"
-                        className="fixed bottom-0 left-0 right-0 z-[10000] bg-[#1a0033] rounded-t-3xl p-6 pointer-events-auto ring-1 ring-white/10 pb-10"
-                        initial={{ y: "100%" }}
-                        animate={{ y: 0 }}
-                        exit={{ y: "100%" }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    >
+                    <div className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200">
                         <div className="flex flex-col gap-4">
                             <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
                             <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
@@ -656,8 +647,8 @@ export default function MessageDetails({
                                 Cancel
                             </button>
                         </div>
-                    </motion.div>
-                </AnimatePresence>,
+                    </div>
+                </div>,
                 document.body
             )}
         </motion.div>
