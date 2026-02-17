@@ -9,6 +9,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 
 interface InstagramStoriesPlugin {
     shareToStory(options: { base64: string }): Promise<void>;
+    shareToWhatsApp(options: { base64: string }): Promise<void>;
 }
 const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStories');
 import { toPng } from "html-to-image";
@@ -105,36 +106,37 @@ export default function MessageDetails({
     // Share Functionality
     const [isSharing, setIsSharing] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
+    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // Initial Share Click -> Open Menu
+    // Initial Share Click -> Open Menu AND Start Generating
     const handleShareClick = () => {
         if (!Capacitor.isNativePlatform()) {
-            // Web: Just do generic share immediately
             handleShareAction('system');
             return;
         }
-        // Debug Alert
-        alert("Debug: Share Button Clicked");
+
         setShowShareMenu(true);
+        // Start generating immediately if not already done
+        if (!generatedImage && !isGenerating) {
+            generateShareImage();
+        }
     };
 
-    const handleShareAction = async (platform: 'instagram' | 'whatsapp' | 'system') => {
-        if (isSharing) return;
-        setIsSharing(true);
+    const generateShareImage = async (): Promise<string | null> => {
+        if (generatedImage) return generatedImage;
+        setIsGenerating(true);
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Small yield
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small UI yield
 
-            // Wait a bit for map to ensure tiles are ready
-            // Only need to wait if we haven't waited before, but safe to wait a bit
-            await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay for better UX
+            // Allow map to settle if needed, but since we start early, this is less blocking for the user
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Execution Logic (Moved from old handleShare)
-            // 1. Generate Image
             const shareElement = document.getElementById(`share-card-${message.id}`);
             if (!shareElement) {
                 console.error("Share element not found");
-                return;
+                return null;
             }
 
             const dataUrl = await toPng(shareElement, {
@@ -143,53 +145,55 @@ export default function MessageDetails({
                 filter: (node) => true,
             });
 
+            setGeneratedImage(dataUrl);
+            return dataUrl;
+        } catch (error) {
+            console.error("Error generating image:", error);
+            return null;
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleShareAction = async (platform: 'instagram' | 'whatsapp' | 'system') => {
+        if (isSharing) return;
+        setIsSharing(true);
+
+        try {
+            // Get Image: Reuse pre-generated or generate now
+            let dataUrl = generatedImage;
+            if (!dataUrl) {
+                console.log("Image not ready, generating now...");
+                dataUrl = await generateShareImage();
+            }
+
+            if (!dataUrl) {
+                alert("Failed to generate image. Please try again.");
+                return;
+            }
+
             // 2. Platform Specific Handling
             if (Capacitor.isNativePlatform()) {
-                const socialSharing = (window as any).plugins?.socialsharing;
-
-                if (socialSharing) {
-                    if (platform === 'instagram') {
-                        // Native Plugin Call
-                        try {
-                            await InstagramStories.shareToStory({ base64: dataUrl });
-                            console.log("Instagram share initiated via native plugin");
-                        } catch (err: any) {
-                            console.error("Instagram Native Plugin Failed:", err);
-                            // Fallback? Maybe, but usually if plugin fails, it means app not installed or error writing file.
-                            // We can try generic share as last resort.
-                            genericShare(dataUrl);
-                        }
-                    } else if (platform === 'whatsapp') {
-                        // WhatsApp Logic - Use File URI for reliability
-                        try {
-                            const fileName = `whatsapp-share-${Date.now()}.png`;
-                            const file = await Filesystem.writeFile({
-                                path: fileName,
-                                data: dataUrl,
-                                directory: Directory.Cache
-                            });
-
-                            socialSharing.shareViaWhatsApp(
-                                `Check out this snapshot!`, // Message
-                                file.uri, // File URI (better than Base64)
-                                null,    // Link
-                                () => { console.log("WhatsApp share success"); },
-                                (err: any) => {
-                                    console.error("WhatsApp share failed:", err);
-                                    // Fallback to generic if specific fails
-                                    genericShare(dataUrl);
-                                }
-                            );
-                        } catch (err) {
-                            console.error("WhatsApp File Write Error:", err);
-                            genericShare(dataUrl);
-                        }
-                    } else {
-                        // System / Fallback
-                        await genericShare(dataUrl);
+                if (platform === 'instagram') {
+                    // Native Instagram Story
+                    try {
+                        await InstagramStories.shareToStory({ base64: dataUrl });
+                        console.log("Instagram share initiated");
+                    } catch (err: any) {
+                        console.error("Instagram Native Failed:", err);
+                        genericShare(dataUrl);
+                    }
+                } else if (platform === 'whatsapp') {
+                    // Native WhatsApp (Action Send)
+                    try {
+                        await InstagramStories.shareToWhatsApp({ base64: dataUrl });
+                        console.log("WhatsApp share initiated");
+                    } catch (err: any) {
+                        console.error("WhatsApp Native Failed:", err);
+                        genericShare(dataUrl);
                     }
                 } else {
-                    console.warn("SocialSharing plugin not found");
+                    // System / Fallback
                     await genericShare(dataUrl);
                 }
             } else {
@@ -198,7 +202,7 @@ export default function MessageDetails({
             }
 
         } catch (error) {
-            console.error("Error generating/sharing image:", error);
+            console.error("Error sharing:", error);
         } finally {
             setIsSharing(false);
         }
@@ -612,7 +616,11 @@ export default function MessageDetails({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={() => setShowShareMenu(false)}
+                        onClick={() => {
+                            setShowShareMenu(false);
+                            setGeneratedImage(null);
+                            setIsGenerating(false);
+                        }}
                     />
                     <motion.div
                         key="sheet"
