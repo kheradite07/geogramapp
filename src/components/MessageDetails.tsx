@@ -609,7 +609,10 @@ export default function MessageDetails({
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
                     >
-                        <div className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200">
+                        <div
+                            className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200 pointer-events-auto"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="flex flex-col gap-4">
                                 <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
                                 <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
