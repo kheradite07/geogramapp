@@ -31,24 +31,10 @@ public class InstagramStoriesPlugin extends Plugin {
             Uri contentUri = FileProvider.getUriForFile(getContext(), "com.geogram.app.fileprovider", newFile);
 
             Intent intent = new Intent("com.instagram.share.ADD_TO_STORY");
-            // To avoid "Double Image" (Background + Sticker), we must NOT set a type that
-            // implies a background image
-            // IF we aren't providing one. However, we DO need a type for the intent to
-            // resolve.
-            // Documentation implies:
-            // - background: setDataAndType
-            // - sticker: extract "interactive_asset_uri"
-            // The issue is likely that "image/png" type without data might be defaulting to
-            // something or
-            // the sticker is being applied as background too?
-            // Let's try setting the background explicitly to the solid color and NOT
-            // setting the intent type to image/png
-            // unless required. Actually, "image/*" is safer.
-            // BUT, some findings suggest that if you setType, it expects data.
-            // Let's try keeping setType but ensuring we don't accidentally set data.
-            // Also, let's try passing the sticker only.
-
-            intent.setType("image/*");
+            // Revert to image/png to ensure Instagram handles the intent.
+            // We avoid setData() to prevent it being treated as a background,
+            // relying on interactive_asset_uri for the sticker.
+            intent.setType("image/png");
             intent.setPackage("com.instagram.android");
 
             // Sticker
@@ -60,6 +46,15 @@ public class InstagramStoriesPlugin extends Plugin {
             intent.putExtra("bottom_background_color", "#1a0033");
 
             intent.putExtra("source_application", appId);
+
+            // CRITICAL FIX: The Intent flag FLAG_GRANT_READ_URI_PERMISSION only applies to
+            // the Intent's data (setData).
+            // It does NOT apply to URIs in extras (like interactive_asset_uri).
+            // We must explicitly grant permission to the target package.
+            getContext().grantUriPermission(
+                    "com.instagram.android",
+                    contentUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             if (getContext().getPackageManager().resolveActivity(intent, 0) != null) {
                 getActivity().startActivityForResult(intent, 0);
@@ -88,21 +83,31 @@ public class InstagramStoriesPlugin extends Plugin {
             Uri contentUri = FileProvider.getUriForFile(getContext(), "com.geogram.app.fileprovider", newFile);
 
             Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("image/*"); // Changed from image/png to image/* for broader compatibility
-            intent.setPackage("com.whatsapp");
+            intent.setType("image/png"); // Specific type
             intent.putExtra(Intent.EXTRA_STREAM, contentUri);
             intent.putExtra(Intent.EXTRA_TEXT, "Check out this snapshot from Geogram!");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            // Verify with specific flags if needed, or just standard resolve
+            // Check for standard WhatsApp
+            intent.setPackage("com.whatsapp");
             if (getContext().getPackageManager().resolveActivity(intent, 0) != null) {
                 getActivity().startActivityForResult(intent, 0);
                 call.resolve();
-            } else {
-                // Try fallback to "com.whatsapp.w4b" (Business) if standard not found?
-                // Or just reject. User said "WhatsApp button", assuming standard.
-                call.reject("WhatsApp is not installed");
+                return;
             }
+
+            // Fallback: Check for WhatsApp Business
+            intent.setPackage("com.whatsapp.w4b");
+            if (getContext().getPackageManager().resolveActivity(intent, 0) != null) {
+                getActivity().startActivityForResult(intent, 0);
+                call.resolve();
+                return;
+            }
+
+            // If neither found, fail (frontend will handle generic fallback)
+            Log.w("InstagramStories", "WhatsApp not found (Standard or Business)");
+            call.reject("WhatsApp is not installed");
+
         } catch (Exception e) {
             Log.e("InstagramStories", "Error sharing to WhatsApp", e);
             call.reject("Error sharing to WhatsApp: " + e.getMessage());
