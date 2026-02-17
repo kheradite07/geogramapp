@@ -6,11 +6,12 @@ const config: CapacitorConfig = {
   appName: 'geogram',
   webDir: 'out',
   server: {
-    url: 'https://geogramapp.vercel.app',
+    url: 'https://192.168.111.13:3001',
     cleartext: true,
     androidScheme: 'https',
     allowNavigation: [
       'geogramapp.vercel.app',
+      '192.168.111.13',
       'accounts.google.com',
       '*.google.com',
       '*.googleusercontent.com'

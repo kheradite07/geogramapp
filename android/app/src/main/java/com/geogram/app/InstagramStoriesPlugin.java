@@ -31,30 +31,27 @@ public class InstagramStoriesPlugin extends Plugin {
             Uri contentUri = FileProvider.getUriForFile(getContext(), "com.geogram.app.fileprovider", newFile);
 
             Intent intent = new Intent("com.instagram.share.ADD_TO_STORY");
-            // Revert to image/png to ensure Instagram handles the intent.
-            // We avoid setData() to prevent it being treated as a background,
-            // relying on interactive_asset_uri for the sticker.
-            intent.setType("image/png");
+
+            // Fallback: Share as "Background" image.
+            // This is the most reliable way to open the Story Editor with an image.
+            // It might cover the whole screen, but it works.
+            intent.setDataAndType(contentUri, "image/png");
             intent.setPackage("com.instagram.android");
 
-            // Sticker
-            intent.putExtra("interactive_asset_uri", contentUri);
+            // Explicitly grant permission because this is an extra, not the main data
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            // Solid Brand Background (This should override any "image" background attempt)
-            intent.putExtra("top_background_color", "#1a0033");
-            intent.putExtra("bottom_background_color", "#1a0033");
-
-            intent.putExtra("source_application", appId);
-
-            // CRITICAL FIX: The Intent flag FLAG_GRANT_READ_URI_PERMISSION only applies to
-            // the Intent's data (setData).
-            // It does NOT apply to URIs in extras (like interactive_asset_uri).
-            // We must explicitly grant permission to the target package.
             getContext().grantUriPermission(
                     "com.instagram.android",
                     contentUri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // Authentication / Attribution Link (Try Geogram)
+            String attributionLink = call.getString("attributionLink");
+            if (attributionLink != null && !attributionLink.isEmpty()) {
+                intent.putExtra("content_url", attributionLink);
+                // Try alternate key sometimes used for stickers/interaction
+                intent.putExtra("com.instagram.sharedSticker.contentURL", attributionLink);
+            }
 
             if (getContext().getPackageManager().resolveActivity(intent, 0) != null) {
                 getActivity().startActivityForResult(intent, 0);

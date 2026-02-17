@@ -156,67 +156,71 @@ const MessageMarker = ({
             className="cursor-pointer group pointer-events-auto message-container"
             style={bubbleStyle}
         >
-            {/* Chat bubble */}
-            <div className="message-bubble bubble-popup">
-                {/* Clustering Badge - Top Left - Larger */}
-                {(message.hiddenCount ?? 0) > 0 && (
-                    <div className="absolute -top-3 -left-3 bg-gradient-to-br from-purple-400 to-purple-600 text-white text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full border-2 border-purple-900 shadow-lg z-10">
-                        +{message.hiddenCount}
-                    </div>
-                )}
+            <div className="relative">
+                {/* Chat bubble */}
+                <div className="message-bubble bubble-popup">
+                    {/* Clustering Badge - Top Left - Larger */}
+                    {(message.hiddenCount ?? 0) > 0 && (
+                        <div className="absolute -top-3 -left-3 bg-gradient-to-br from-purple-400 to-purple-600 text-white text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full border-2 border-purple-900 shadow-lg z-10">
+                            +{message.hiddenCount}
+                        </div>
+                    )}
 
-                {/* Vote Controls Component - Show based on zoom level */}
-                {zoom >= 14 && (
-                    <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <VoteControls
-                            message={message}
-                            onVote={onVote}
-                            currentUser={currentUser}
-                            unlimitedVotes={unlimitedVotes}
-                            orientation="corner"
-                        />
-                    </div>
-                )}
+                    {/* Shine effect */}
+                    <div className="bubble-shine" />
 
-                {/* Shine effect */}
-                <div className="bubble-shine" />
+                    {/* User Avatar - Hide if anonymous */}
+                    {!message.isAnonymous && (
+                        <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
+                            {/* Premium Crown - Absolute Position Top Right of Avatar */}
+                            {isPremium && (
+                                <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
+                                    <span className="text-[10px]">👑</span>
+                                </div>
+                            )}
 
-                {/* User Avatar - Hide if anonymous */}
-                {!message.isAnonymous && (
-                    <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
-                        {/* Premium Crown - Absolute Position Top Right of Avatar */}
-                        {isPremium && (
-                            <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
-                                <span className="text-[10px]">👑</span>
-                            </div>
-                        )}
+                            {message.userImage ? (
+                                <img
+                                    src={message.userImage}
+                                    alt={message.userName}
+                                    className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
+                                />
+                            ) : (
+                                <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
+                                    {message.userName.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                        {message.userImage ? (
-                            <img
-                                src={message.userImage}
-                                alt={message.userName}
-                                className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
-                            />
-                        ) : (
-                            <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
-                                {message.userName.charAt(0).toUpperCase()}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Content */}
-                <div className="flex flex-col relative z-10 min-w-0 flex-1 message-content">
-                    <span className="message-text">
-                        {message.text}
-                    </span>
-                    <div className="flex items-center mt-0.5 space-x-2">
-                        <span className="message-meta">
-                            {!message.isAnonymous && <>{message.userName} • </>}
-                            {formatRelativeTime(message.timestamp)}
+                    {/* Content */}
+                    <div className="flex flex-col relative z-10 min-w-0 flex-1 message-content">
+                        <span className="message-text">
+                            {message.text}
                         </span>
+                        <div className="flex items-center mt-0.5 space-x-2">
+                            <span className="message-meta">
+                                {!message.isAnonymous && <>{message.userName} • </>}
+                                {formatRelativeTime(message.timestamp)}
+                            </span>
+                        </div>
                     </div>
                 </div>
+
+                {/* Side Action Bar - Vote Controls (Outside Bubble) */}
+                {zoom >= 14 && (
+                    <div className="absolute left-full top-0 bottom-0 ml-2 flex items-center z-[-1]">
+                        <div className="reveal-from-behind">
+                            <VoteControls
+                                message={message}
+                                onVote={onVote}
+                                currentUser={currentUser}
+                                unlimitedVotes={unlimitedVotes}
+                                orientation="vertical"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Tail/pointer */}
@@ -248,7 +252,26 @@ const MessageMarker = ({
                     outline: var(--outline);
                     outline-offset: 2px;
                     /* More visible white outline for contrast against purple map */
-                    box-shadow: var(--bubble-shadow), 0 0 0 1px rgba(255, 255, 255, 0.4);
+                    z-index: 10; /* Ensure bubble is on top of sidebar */
+                }
+
+                .reveal-from-behind {
+                    animation: revealFromBehind 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                    opacity: 0;
+                }
+
+
+
+
+                @keyframes revealFromBehind {
+                    0% {
+                        opacity: 0;
+                        transform: translateX(-100%); /* Start inside/behind bubble center */
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: translateX(0); /* End at natural position */
+                    }
                 }
 
                 .message-bubble:hover {
@@ -358,9 +381,9 @@ export default function MapComponent() {
     const { data: session } = useSession();
 
     const [viewState, setViewState] = useState({
-        latitude: 41.0082,
-        longitude: 28.9784,
-        zoom: 12,
+        latitude: 20, // World centerish
+        longitude: 0,
+        zoom: 2, // Start zoomed out (Space/World view)
     });
 
     const [showDetails, setShowDetails] = useState<boolean>(false);
@@ -375,7 +398,7 @@ export default function MapComponent() {
 
     const { expirationHours, minLikesForZoom, isSimulationMode, unlimitedVotes, clusterRadius } = useConfig();
     const { user: currentUserData, handleFriendRequest } = useUser();
-    const { setMessageDetailsOpen } = useUI();
+    const { setMessageDetailsOpen, triggerLocationFocus } = useUI();
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
     const [isLayersOpen, setIsLayersOpen] = useState(false);
@@ -431,21 +454,49 @@ export default function MapComponent() {
     // Track if we have already centered on user location to prevent loops
     const hasCentered = useRef(false);
 
-    // Initialize/Restore Map State
+    // REMOVED: Do not restore state from localStorage. Always start from World View.
+    // useEffect(() => { ... }, []); 
+
+    // Track map load state
+    const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+    // Force Center on User Location when available (Initial Load Only)
+    // AND wait for map to be loaded
     useEffect(() => {
-        try {
-            const savedState = localStorage.getItem('geogram_map_view_state');
-            if (savedState) {
-                const parsed = JSON.parse(savedState);
-                if (parsed && typeof parsed.latitude === 'number') {
-                    setViewState(parsed);
-                    hasCentered.current = true; // Assume we are already where we want to be
-                }
+        if (location && isMapLoaded && !hasCentered.current) {
+            console.log("📍 Centering map on user location (FlyTo):", location);
+
+            // Fly down to the user's location from the initial World View
+            if (mapRef.current) {
+                mapRef.current.flyTo({
+                    center: [location.lng, location.lat],
+                    zoom: 12, // Target zoom
+                    duration: 3500, // Cinematic flight
+                    essential: true
+                });
+                hasCentered.current = true;
             }
-        } catch (e) {
-            console.error("Failed to restore map state", e);
         }
-    }, []);
+    }, [location, isMapLoaded]);
+
+    // Listen for manual location focus trigger
+    useEffect(() => {
+        if (triggerLocationFocus > 0 && location && mapRef.current) {
+            console.log("📍 Manual FlyTo Triggered");
+
+            // Close any open message details to reset UI state
+            setSelectedMessage(null);
+            setMessageDetailsOpen(false);
+
+            mapRef.current.flyTo({
+                center: [location.lng, location.lat],
+                zoom: 15, // Closer zoom for manual focus
+                padding: { top: 0, bottom: 0, left: 0, right: 0 }, // Reset any padding (especially from message details)
+                duration: 2000,
+                essential: true
+            });
+        }
+    }, [triggerLocationFocus, location]);
 
     // Save Map State on Move
     const handleMoveEnd = (evt: any) => {
@@ -1046,6 +1097,10 @@ export default function MapComponent() {
                 attributionControl={false}
                 projection="globe"
                 fog={FOG_CONFIG}
+                onLoad={() => {
+                    console.log("🗺️ Map Loaded");
+                    setIsMapLoaded(true);
+                }}
                 onClick={async (evt) => {
                     if (isSimulationMode) {
                         const { lng, lat } = evt.lngLat;

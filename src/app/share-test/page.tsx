@@ -1,6 +1,6 @@
 "use client";
 
-import { Share as ShareIcon } from "lucide-react";
+import { Share as ShareIcon, ThumbsUp, ThumbsDown } from "lucide-react";
 import Map from "react-map-gl/mapbox";
 import { customMapStyle } from "@/lib/mapboxStyle";
 
@@ -35,7 +35,7 @@ export default function ShareTestPage() {
                         initialViewState={{
                             longitude: message.lng,
                             latitude: message.lat,
-                            zoom: 12.5
+                            zoom: 10.5
                         }}
                         mapStyle={customMapStyle as any}
                         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -123,12 +123,12 @@ export default function ShareTestPage() {
                             {/* Vote Pills */}
                             <div className="absolute -right-3 -top-3 flex flex-col gap-2 scale-90 origin-bottom-left">
                                 <div className="bg-[#10b981] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                    <span className="text-[10px]">👍</span> {message.likes || 0}
+                                    <ThumbsUp size={10} className="text-white fill-current" /> {message.likes || 0}
                                 </div>
                             </div>
                             <div className="absolute -right-3 -bottom-3 flex flex-col gap-2 scale-90 origin-top-left">
                                 <div className="bg-[#ef4444] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                    <span className="text-[10px]">👎</span> 0
+                                    <ThumbsDown size={10} className="text-white fill-current" /> 0
                                 </div>
                             </div>
 
@@ -145,9 +145,18 @@ export default function ShareTestPage() {
                             filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
                         }} />
 
-                        {/* Location Text Below Bubble */}
-                        <div className="mt-8 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white/60 text-[10px] font-medium flex items-center gap-1">
-                            📍 Istanbul, Turkey
+
+                    </div>
+
+                    {/* Download CTA */}
+                    <div className="absolute bottom-12 w-full text-center z-20">
+                        <div className="text-2xl font-bold tracking-tighter lowercase" style={{
+                            background: 'linear-gradient(to right, #c084fc, #e879f9)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            filter: 'drop-shadow(0 0 10px rgba(192, 132, 252, 0.5))'
+                        }}>
+                            geogram
                         </div>
                     </div>
                 </div>

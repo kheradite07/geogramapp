@@ -138,3 +138,33 @@ Messages appear on the map at the exact location they were sent from.
 - **DO NOT** apply global transitions to `.mapboxgl-marker`. 
 - Use specific classes for hover effects (e.g., `transition-transform` on an inner div).
 - Ensure new markers are added with stable keys to prevent React from reusing DOM elements for distant locations.
+
+## Engineering & UX Standards (Established Rules)
+
+### 1. Map Interaction Rules
+- **Initialization:** The map **MUST** always start with a "FlyTo" animation from a zoomed-out world view to the user's current location.
+- **State Restoration:** Do **NOT** restore the previous map center from local storage on app load. Always prioritize the user's *current* real-world context.
+- **Focus Logic:** Tapping "My Location" or the input bar must center the map on the user. If a message detail window is open, it should be closed, and the map padding reset before centering.
+- **Marker Alignment:** All map markers (bubbles, message details, share cards) utilizing a "tail" or "triangle" pointer **MUST** have the tip of that pointer aligned **exactly** with the geographic coordinates of the post. Visual gaps or offsets are unacceptable.
+
+### 2. UI/UX Design System
+- **Glassmorphism:** Use `backdrop-blur-3xl` and semi-transparent backgrounds (e.g., `bg-[#051a0d]/95`) for all overlays to maintain context with the map.
+- **Message Details Window:**
+    - **Pointer:** The triangular pointer must be visually "attached" to the window with zero gap. Use `padding-bottom` on the container to include the pointer in the element's flow.
+    - **Comments:** Must use a compact, single-line layout (Instagram style). Avatar, name, message, and time must be inline and vertically centered.
+    - **Typography:** Use strict text overflow rules (`break-all`, `whitespace-normal`) to prevent layout breakage from long words.
+    - **Scrollbars:** Always hide scrollbars (`scrollbar-width: none`) in overlay lists for a cleaner look.
+
+### 3. Mobile & Native Handling
+- **Sharing:**
+    - Detect the platform using `Capacitor.isNativePlatform()`.
+    - On Android/iOS, prioritize **Native Instagram Stories** and **WhatsApp** sharing via intent plugins.
+    - Generate images internally using `html-to-image` before passing to native share sheets.
+- **Input Handling:**
+    - Explicitly stop propagation (`e.stopPropagation()`) on all interactive inputs overlaid on the map to prevent touch conflicts.
+    - Restore native input events (`onClick`, `onFocus`) manually if the map library intercepts them.
+
+### 4. Performance
+- **Image Generation:** Pre-generate shareable images in the background when the menu opens to reduce perceived lag.
+- **Mapbox Migration:** Use `react-map-gl` with Mapbox GL JS for superior performance over Google Maps. Use strict typing for all geo-interfaces.
+

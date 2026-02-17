@@ -8,7 +8,7 @@ interface VoteControlsProps {
     onVote?: (id: string, action: 'like' | 'dislike', unlimited: boolean) => void;
     currentUser?: any;
     unlimitedVotes?: boolean;
-    orientation?: 'corner' | 'horizontal';
+    orientation?: 'corner' | 'horizontal' | 'vertical';
 }
 
 export default function VoteControls({
@@ -125,6 +125,42 @@ export default function VoteControls({
                     <span className="text-xs font-bold text-white">{optimisticDislikes}</span>
                 </button>
             </>
+        );
+    }
+
+    if (orientation === 'vertical') {
+        return (
+            <div className="flex flex-col gap-1 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                <button
+                    onClick={(e) => handleVoteAction(e, 'like')}
+                    className={`group/btn relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${optimisticHasLiked ? 'bg-green-500/30 text-green-300 border-green-400' : 'bg-green-950/40 text-green-50 border-green-500/40 hover:bg-green-900/60 group-hover/btn:border-green-400/60'} ${likeAnimation ? 'vote-animate' : ''} border backdrop-blur-md shadow-md`}
+                >
+                    <div className={`absolute inset-0 bg-green-500/20 rounded-full blur-md transition-opacity duration-300 ${optimisticHasLiked ? 'opacity-100' : 'opacity-0 group-hover/btn:opacity-50'}`} />
+                    <svg className="w-5 h-5 relative z-10" fill={optimisticHasLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                    </svg>
+                    {optimisticLikes > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center shadow-sm z-20">
+                            {optimisticLikes}
+                        </span>
+                    )}
+                </button>
+
+                <button
+                    onClick={(e) => handleVoteAction(e, 'dislike')}
+                    className={`group/btn relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${optimisticHasDisliked ? 'bg-red-500/30 text-red-300 border-red-400' : 'bg-red-950/40 text-red-50 border-red-500/40 hover:bg-red-900/60 group-hover/btn:border-red-400/60'} ${dislikeAnimation ? 'vote-animate' : ''} border backdrop-blur-md shadow-md`}
+                >
+                    <div className={`absolute inset-0 bg-red-500/20 rounded-full blur-md transition-opacity duration-300 ${optimisticHasDisliked ? 'opacity-100' : 'opacity-0 group-hover/btn:opacity-50'}`} />
+                    <svg className="w-5 h-5 relative z-10" fill={optimisticHasDisliked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                    </svg>
+                    {optimisticDislikes > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center shadow-sm z-20">
+                            {optimisticDislikes}
+                        </span>
+                    )}
+                </button>
+            </div>
         );
     }
 

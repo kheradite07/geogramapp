@@ -7,17 +7,23 @@ type UIState = {
     isMessageDetailsOpen: boolean;
     isLoginModalOpen: boolean;
     isKeyboardOpen: boolean;
+    triggerLocationFocus: number;
+    triggerFocusLocation: () => void;
 };
 
 type UIContextType = UIState & {
     setMessageDetailsOpen: (isOpen: boolean) => void;
     setLoginModalOpen: (isOpen: boolean) => void;
+    triggerLocationFocus: number;
+    triggerFocusLocation: () => void;
 };
 
 const defaultState: UIState = {
     isMessageDetailsOpen: false,
     isLoginModalOpen: false,
     isKeyboardOpen: false,
+    triggerLocationFocus: 0,
+    triggerFocusLocation: () => { },
 };
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -97,11 +103,19 @@ export function UIProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
+    const [triggerLocationFocus, setTriggerLocationFocus] = useState<number>(0);
+
+    const triggerFocusLocation = useCallback(() => {
+        setTriggerLocationFocus(Date.now());
+    }, []);
+
     const contextValue = useMemo(() => ({
         ...state,
         setMessageDetailsOpen,
-        setLoginModalOpen
-    }), [state, setMessageDetailsOpen, setLoginModalOpen]);
+        setLoginModalOpen,
+        triggerLocationFocus,
+        triggerFocusLocation
+    }), [state, setMessageDetailsOpen, setLoginModalOpen, triggerLocationFocus, triggerFocusLocation]);
 
     return (
         <UIContext.Provider value={contextValue}>

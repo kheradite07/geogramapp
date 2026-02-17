@@ -8,14 +8,14 @@ import Map from "react-map-gl/mapbox"; // Import Map
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 interface InstagramStoriesPlugin {
-    shareToStory(options: { base64: string }): Promise<void>;
+    shareToStory(options: { base64: string; attributionLink?: string }): Promise<void>;
     shareToWhatsApp(options: { base64: string }): Promise<void>;
 }
 const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStories');
 import { toPng } from "html-to-image";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { Check, Clock, UserPlus, X, Send, Share as ShareIcon, Instagram, MoreHorizontal, MessageCircle, Heart, MoreVertical, Flag, Ban } from "lucide-react";
+import { Check, Clock, UserPlus, X, Send, Share as ShareIcon, Instagram, MoreHorizontal, MessageCircle, Heart, MoreVertical, Flag, Ban, ThumbsUp, ThumbsDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Message, Comment } from "@/lib/store";
 
@@ -177,7 +177,10 @@ export default function MessageDetails({
                 if (platform === 'instagram') {
                     // Native Instagram Story
                     try {
-                        await InstagramStories.shareToStory({ base64: dataUrl });
+                        await InstagramStories.shareToStory({
+                            base64: dataUrl,
+                            attributionLink: "https://geogramapp.vercel.app"
+                        });
                         console.log("Instagram share initiated");
                     } catch (err: any) {
                         console.error("Instagram Native Failed:", err);
@@ -266,7 +269,7 @@ export default function MessageDetails({
             onClick={(e) => e.stopPropagation()}
             style={{
                 transformOrigin: "bottom center",
-                marginBottom: "10px"
+                paddingBottom: "20px" // Use padding so the element include the space for the pointer
             }}
         >
             <div className={`backdrop-blur-3xl border rounded-[1.5rem] p-3 md:p-5 overflow-hidden relative group transition-colors duration-300 ${isFriend
@@ -386,40 +389,46 @@ export default function MessageDetails({
                     </div>
 
                     {/* Comments Section */}
-                    <div className="space-y-3 mt-4 border-t border-white/10 pt-4 pointer-events-auto">
-                        <h4 className="text-white/60 text-xs font-semibold uppercase tracking-wider">Comments ({comments.length})</h4>
+                    <div className="space-y-2 mt-3 border-t border-white/10 pt-3 pointer-events-auto">
+                        <h4 className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Comments ({comments.length})</h4>
 
                         {/* Comments List */}
                         <div
-                            className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pointer-events-auto"
+                            className="space-y-1.5 max-h-32 overflow-y-auto pointer-events-auto"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             onWheel={(e) => e.stopPropagation()}
                             onTouchMove={(e) => e.stopPropagation()}
                         >
+                            <style jsx>{`
+                                div::-webkit-scrollbar {
+                                    display: none;
+                                }
+                            `}</style>
                             {isLoadingComments ? (
-                                <div className="text-white/40 text-xs text-center py-4">Loading comments...</div>
+                                <div className="text-white/40 text-[10px] text-center py-2">Loading comments...</div>
                             ) : comments.length === 0 ? (
-                                <div className="text-white/40 text-xs text-center py-4">No comments yet. Be the first!</div>
+                                <div className="text-white/40 text-[10px] text-center py-2">No comments yet. Be the first!</div>
                             ) : (
                                 comments.map((comment) => (
-                                    <div key={comment.id} className="bg-white/5 rounded-xl p-3 border border-white/5">
-                                        <div className="flex items-start gap-2">
+                                    <div key={comment.id} className="bg-white/5 rounded-lg p-2 border border-white/5">
+                                        <div className="flex items-center gap-2">
                                             {comment.authorImage ? (
                                                 <img
                                                     src={comment.authorImage}
                                                     alt={comment.authorName}
-                                                    className="w-6 h-6 rounded-full object-cover"
+                                                    className="w-5 h-5 rounded-full object-cover shrink-0"
                                                 />
                                             ) : (
-                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+                                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                                                     {comment.authorName.charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-white/80 text-xs font-semibold">{comment.authorName}</span>
-                                                    <span className="text-white/30 text-[10px]">{formatRelativeTime(new Date(comment.createdAt).getTime())} ago</span>
-                                                </div>
-                                                <p className="text-white/90 text-sm mt-1 leading-relaxed">{comment.content}</p>
+                                            <div className="min-w-0 text-[12px] leading-snug break-all">
+                                                <span className="font-bold text-white mr-2">{comment.authorName}</span>
+                                                <span className="text-white/90">{comment.content}</span>
+                                                <span className="text-white/30 text-[10px] ml-2 inline-block">
+                                                    {formatRelativeTime(new Date(comment.createdAt).getTime())}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -431,7 +440,7 @@ export default function MessageDetails({
                         {currentUser && (
                             <form
                                 onSubmit={handleSubmitComment}
-                                className="flex gap-2 pointer-events-auto"
+                                className="flex gap-2 pointer-events-auto mt-2" // Reduced margin
                                 onClick={(e) => e.stopPropagation()}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onPointerDown={(e) => e.stopPropagation()}
@@ -445,22 +454,22 @@ export default function MessageDetails({
                                     onPointerDown={(e) => e.stopPropagation()}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        (e.target as HTMLInputElement).focus();
+                                        e.currentTarget.focus();
                                     }}
+                                    onTouchStart={(e) => e.stopPropagation()}
                                     placeholder="Write a comment..."
-                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 pointer-events-auto cursor-text"
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-purple-500/50 pointer-events-auto cursor-text select-text z-50"
                                     style={{ pointerEvents: 'auto' }}
                                     disabled={isSubmitting}
                                     autoComplete="off"
-                                    tabIndex={0}
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newComment.trim() || isSubmitting}
-                                    className="p-2 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white rounded-xl transition-all disabled:cursor-not-allowed pointer-events-auto"
+                                    className="p-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-white/10 disabled:text-white/30 text-white rounded-lg transition-all disabled:cursor-not-allowed pointer-events-auto flex items-center justify-center"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    <Send size={16} />
+                                    <Send size={14} />
                                 </button>
                             </form>
                         )}
@@ -471,6 +480,27 @@ export default function MessageDetails({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -ml-12 -mb-12 pointer-events-none"></div>
             </div>
+
+            {/* Map Pointer/Triangle */}
+            <div
+                style={{
+                    position: 'absolute',
+                    bottom: '0', // Align to bottom of the padded container
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '20px solid transparent',
+                    borderRight: '20px solid transparent',
+                    borderTopWidth: '20px',
+                    borderTopStyle: 'solid',
+                    borderTopColor: isFriend ? '#051a0d' : '#120024',
+                    filter: isFriend
+                        ? 'drop-shadow(0 4px 4px rgba(34,197,94,0.1))'
+                        : 'drop-shadow(0 4px 4px rgba(0,0,0,0.5))',
+                    zIndex: -1
+                }}
+            />
 
             {/* Hidden Share Card Template */}
             <div className="absolute -z-50 top-0 left-0 overflow-hidden pointer-events-none opacity-0" aria-hidden="true">
@@ -484,7 +514,7 @@ export default function MessageDetails({
                             initialViewState={{
                                 longitude: message.lng,
                                 latitude: message.lat,
-                                zoom: 12.5 // Slightly zoomed out as requested
+                                zoom: 10.5 // Zoomed out ~2x (from 12.5) as requested
                             }}
                             mapStyle={customMapStyle as any}
                             mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -495,16 +525,20 @@ export default function MessageDetails({
                         />
                     </div>
 
-                    {/* Central Content - The Bubble (Exact Replica) */}
-                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-8">
+                    {/* Central Content - The Bubble (Correctly Positioned) */}
+                    <div className="absolute inset-0 z-10 pointer-events-none">
                         <div
                             style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -100%)', // Anchors bottom-center (tail tip) to map center
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                filter: 'drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3))', // Standard shadow from Map.tsx
-                                transform: 'scale(1)', // No extra scaling
-                                transformOrigin: 'center center'
+                                filter: 'drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3))',
+                                transformOrigin: 'bottom center',
+                                paddingBottom: '0px' // Ensure no extra padding at bottom
                             }}
                         >
                             {/* Chat bubble */}
@@ -572,12 +606,12 @@ export default function MessageDetails({
                                 {/* Vote Pills (Attached exactly like screenshot) */}
                                 <div className="absolute -right-3 -top-3 flex flex-col gap-2 scale-90 origin-bottom-left">
                                     <div className="bg-[#10b981] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                        <span className="text-[10px]">👍</span> {message.likes || 0}
+                                        <ThumbsUp size={10} className="text-white fill-current" /> {message.likes || 0}
                                     </div>
                                 </div>
                                 <div className="absolute -right-3 -bottom-3 flex flex-col gap-2 scale-90 origin-top-left">
                                     <div className="bg-[#ef4444] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                        <span className="text-[10px]">👎</span> 0
+                                        <ThumbsDown size={10} className="text-white fill-current" /> 0
                                     </div>
                                 </div>
 
@@ -599,8 +633,13 @@ export default function MessageDetails({
 
                     {/* Download CTA */}
                     <div className="absolute bottom-12 w-full text-center z-20">
-                        <div className="inline-block px-6 py-3 bg-white text-black rounded-full font-bold text-sm shadow-xl animate-bounce">
-                            📍 Join me on Geogram
+                        <div className="text-2xl font-bold tracking-tighter lowercase" style={{
+                            background: 'linear-gradient(to right, #c084fc, #e879f9)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            filter: 'drop-shadow(0 0 10px rgba(192, 132, 252, 0.5))'
+                        }}>
+                            geogram
                         </div>
                     </div>
 
@@ -608,83 +647,85 @@ export default function MessageDetails({
             </div>
 
             {/* Custom Share Menu Bottom Sheet */}
-            {showShareMenu && typeof document !== 'undefined' && createPortal(
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key="backdrop"
-                        className="fixed inset-0 z-[2147483647] bg-black/60 pointer-events-auto"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => {
-                            setShowShareMenu(false);
-                            setGeneratedImage(null);
-                            setIsGenerating(false);
-                        }}
-                    />
-                    <motion.div
-                        key="sheet"
-                        className="fixed bottom-0 left-0 right-0 z-[2147483647] pointer-events-none flex justify-center"
-                        initial={{ y: "100%" }}
-                        animate={{ y: 0 }}
-                        exit={{ y: "100%" }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    >
-                        <div
-                            className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200 pointer-events-auto"
-                            onClick={(e) => e.stopPropagation()}
+            {
+                showShareMenu && typeof document !== 'undefined' && createPortal(
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key="backdrop"
+                            className="fixed inset-0 z-[2147483647] bg-black/60 pointer-events-auto"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => {
+                                setShowShareMenu(false);
+                                setGeneratedImage(null);
+                                setIsGenerating(false);
+                            }}
+                        />
+                        <motion.div
+                            key="sheet"
+                            className="fixed bottom-0 left-0 right-0 z-[2147483647] pointer-events-none flex justify-center"
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
                         >
-                            <div className="flex flex-col gap-4">
-                                <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
-                                <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
+                            <div
+                                className="relative w-full max-w-md bg-[#1a0033] rounded-t-3xl p-6 pb-10 ring-1 ring-white/20 shadow-2xl animate-in slide-in-from-bottom duration-200 pointer-events-auto"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex flex-col gap-4">
+                                    <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
+                                    <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
 
-                                <div className="grid grid-cols-4 gap-4 justify-items-center">
-                                    {/* Instagram Option */}
-                                    <button
-                                        onClick={() => handleShareAction('instagram')}
-                                        className="flex flex-col items-center gap-2 group w-full"
-                                    >
-                                        <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                            <Icons.Instagram className="w-7 h-7 text-white" />
-                                        </div>
-                                        <span className="text-xs text-white/80">Stories</span>
-                                    </button>
+                                    <div className="grid grid-cols-4 gap-4 justify-items-center">
+                                        {/* Instagram Option */}
+                                        <button
+                                            onClick={() => handleShareAction('instagram')}
+                                            className="flex flex-col items-center gap-2 group w-full"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                                <Icons.Instagram className="w-7 h-7 text-white" />
+                                            </div>
+                                            <span className="text-xs text-white/80">Stories</span>
+                                        </button>
 
-                                    {/* WhatsApp Option */}
-                                    <button
-                                        onClick={() => handleShareAction('whatsapp')}
-                                        className="flex flex-col items-center gap-2 group w-full"
-                                    >
-                                        <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                            <Icons.WhatsApp className="w-7 h-7 text-white" />
-                                        </div>
-                                        <span className="text-xs text-white/80">WhatsApp</span>
-                                    </button>
+                                        {/* WhatsApp Option */}
+                                        <button
+                                            onClick={() => handleShareAction('whatsapp')}
+                                            className="flex flex-col items-center gap-2 group w-full"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                                <Icons.WhatsApp className="w-7 h-7 text-white" />
+                                            </div>
+                                            <span className="text-xs text-white/80">WhatsApp</span>
+                                        </button>
 
-                                    {/* System Option */}
+                                        {/* System Option */}
+                                        <button
+                                            onClick={() => handleShareAction('system')}
+                                            className="flex flex-col items-center gap-2 group w-full"
+                                        >
+                                            <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
+                                                <Icons.More className="w-7 h-7 text-white" />
+                                            </div>
+                                            <span className="text-xs text-white/80">More</span>
+                                        </button>
+                                    </div>
+
                                     <button
-                                        onClick={() => handleShareAction('system')}
-                                        className="flex flex-col items-center gap-2 group w-full"
+                                        onClick={() => setShowShareMenu(false)}
+                                        className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
                                     >
-                                        <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
-                                            <Icons.More className="w-7 h-7 text-white" />
-                                        </div>
-                                        <span className="text-xs text-white/80">More</span>
+                                        Cancel
                                     </button>
                                 </div>
-
-                                <button
-                                    onClick={() => setShowShareMenu(false)}
-                                    className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
-                                >
-                                    Cancel
-                                </button>
                             </div>
-                        </div>
-                    </motion.div>
-                </AnimatePresence>,
-                document.body
-            )}
-        </motion.div>
+                        </motion.div>
+                    </AnimatePresence>,
+                    document.body
+                )
+            }
+        </motion.div >
     );
 }

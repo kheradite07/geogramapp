@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "dev:https": "concurrently \"npm run dev\" \"local-ssl-proxy --source 3001 --target 3000 --cert certificates/localhost.pem --key certificates/localhost-key.pem\"",
     "build": "prisma generate && next build",
     "mobile:build": "node scripts/build-mobile.js",

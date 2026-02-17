@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
-import { Send, MapPin, Calendar, User, Smile, X, Image as ImageIcon, Globe, Users } from "lucide-react";
+import { Send, MapPin, Calendar, User, Smile, X, Image as ImageIcon, Globe, Users, Locate } from "lucide-react";
 
 import { useMessages } from "@/hooks/useMessages";
 import { useLocation } from "@/hooks/useLocation";
@@ -99,7 +99,7 @@ export default function InputBar() {
     const { data: session } = useSession();
 
     const { maxChars } = useConfig();
-    const { isMessageDetailsOpen, setLoginModalOpen, isKeyboardOpen } = useUI();
+    const { isMessageDetailsOpen, setLoginModalOpen, isKeyboardOpen, triggerFocusLocation } = useUI();
 
     // Typewriter Effect State
     const [placeholder, setPlaceholder] = useState("");
@@ -244,8 +244,19 @@ export default function InputBar() {
                         transform: isMessageDetailsOpen ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
                         opacity: isMessageDetailsOpen ? 0 : 1,
                         boxSizing: 'border-box', // Ensure padding doesn't cause overflow
+                        position: 'relative',
                     }}
                 >
+                    {/* My Location Button (Glassmorphism) */}
+                    <button
+                        onClick={triggerFocusLocation}
+                        className="absolute -top-16 right-2 p-3 rounded-full text-white shadow-lg hover:bg-white/20 transition-all active:scale-95 z-50 group backdrop-blur-md bg-white/10 border border-white/20"
+                        style={{
+                            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                        }}
+                    >
+                        <Locate size={20} className="group-hover:text-purple-400 transition-colors" />
+                    </button>
 
 
                     {/* Input form */}
