@@ -29,6 +29,13 @@ const config: CapacitorConfig = {
       style: KeyboardStyle.Dark,
       resizeOnFullScreen: true,
     },
+    SplashScreen: {
+      backgroundColor: '#1a0033',
+      androidScaleType: 'CENTER_CROP',
+      splashFullScreen: true,
+      splashImmersive: true,
+      launchShowDuration: 3000,
+    },
   }
 };
 

@@ -18,35 +18,37 @@ export default function Home() {
     <main className="w-full h-full pointer-events-none relative">
       {/* Map is always in background in layout.tsx */}
 
-      <AnimatePresence mode="wait">
-        {/* Active View */}
-        {activeTab === "friends" && (
-          <motion.div
-            key="friends"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }} // Simple fade out/down
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm"
-          >
-            <FriendsView />
-          </motion.div>
-        )}
+      {/* Map is always in background in layout.tsx */}
 
-        {/* ... other views ... */}
-        {activeTab === "settings" && (
-          <motion.div
-            key="settings"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm"
-          >
-            <SettingsView />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Friends View - Keep Alive */}
+      <motion.div
+        key="friends"
+        initial="closed"
+        animate={activeTab === "friends" ? "open" : "closed"}
+        variants={{
+          open: { opacity: 1, y: 0, display: "block" },
+          closed: { opacity: 0, y: 20, transitionEnd: { display: "none" } },
+        }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm"
+      >
+        <FriendsView />
+      </motion.div>
+
+      {/* Settings View - Keep Alive */}
+      <motion.div
+        key="settings"
+        initial="closed"
+        animate={activeTab === "settings" ? "open" : "closed"}
+        variants={{
+          open: { opacity: 1, y: 0, display: "block" },
+          closed: { opacity: 0, y: 20, transitionEnd: { display: "none" } },
+        }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm"
+      >
+        <SettingsView />
+      </motion.div>
 
       {/* Input Bar only on Map */}
       <AnimatePresence>
