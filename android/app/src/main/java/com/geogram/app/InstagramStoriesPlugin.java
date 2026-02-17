@@ -31,16 +31,31 @@ public class InstagramStoriesPlugin extends Plugin {
             Uri contentUri = FileProvider.getUriForFile(getContext(), "com.geogram.app.fileprovider", newFile);
 
             Intent intent = new Intent("com.instagram.share.ADD_TO_STORY");
-            // CRITICAL FIX: Do NOT set data (setDataAndType). Only set Type.
-            // This prevents Instagram from treating it as a "background" image + sticker.
-            intent.setType("image/png");
-            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // To avoid "Double Image" (Background + Sticker), we must NOT set a type that
+            // implies a background image
+            // IF we aren't providing one. However, we DO need a type for the intent to
+            // resolve.
+            // Documentation implies:
+            // - background: setDataAndType
+            // - sticker: extract "interactive_asset_uri"
+            // The issue is likely that "image/png" type without data might be defaulting to
+            // something or
+            // the sticker is being applied as background too?
+            // Let's try setting the background explicitly to the solid color and NOT
+            // setting the intent type to image/png
+            // unless required. Actually, "image/*" is safer.
+            // BUT, some findings suggest that if you setType, it expects data.
+            // Let's try keeping setType but ensuring we don't accidentally set data.
+            // Also, let's try passing the sticker only.
+
+            intent.setType("image/*");
             intent.setPackage("com.instagram.android");
 
-            // Sticker Image
+            // Sticker
             intent.putExtra("interactive_asset_uri", contentUri);
+            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            // Solid Brand Background
+            // Solid Brand Background (This should override any "image" background attempt)
             intent.putExtra("top_background_color", "#1a0033");
             intent.putExtra("bottom_background_color", "#1a0033");
 
@@ -73,16 +88,19 @@ public class InstagramStoriesPlugin extends Plugin {
             Uri contentUri = FileProvider.getUriForFile(getContext(), "com.geogram.app.fileprovider", newFile);
 
             Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("image/png");
+            intent.setType("image/*"); // Changed from image/png to image/* for broader compatibility
             intent.setPackage("com.whatsapp");
             intent.putExtra(Intent.EXTRA_STREAM, contentUri);
             intent.putExtra(Intent.EXTRA_TEXT, "Check out this snapshot from Geogram!");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
+            // Verify with specific flags if needed, or just standard resolve
             if (getContext().getPackageManager().resolveActivity(intent, 0) != null) {
                 getActivity().startActivityForResult(intent, 0);
                 call.resolve();
             } else {
+                // Try fallback to "com.whatsapp.w4b" (Business) if standard not found?
+                // Or just reject. User said "WhatsApp button", assuming standard.
                 call.reject("WhatsApp is not installed");
             }
         } catch (Exception e) {
