@@ -193,7 +193,7 @@ export default function MessageDetails({
 
     const genericShare = async (dataUrl: string) => {
         try {
-            if (process.env.NEXT_PUBLIC_CAPACITOR_PLATFORM !== 'web') {
+            if (Capacitor.isNativePlatform()) {
                 // Native generic share
                 const fileName = `share-${Date.now()}.png`;
                 const file = await Filesystem.writeFile({
@@ -209,12 +209,14 @@ export default function MessageDetails({
                 // Web Share
                 const blob = await (await fetch(dataUrl)).blob();
                 const file = new File([blob], "share.png", { type: blob.type });
+                const shareData = {
+                    files: [file],
+                    title: 'Share Post',
+                    text: `Check out this post by ${message.userName} on Geogram!`,
+                };
 
-                if (navigator.share && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: 'Share Post',
-                    });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share(shareData);
                 } else {
                     // Fallback to download
                     const link = document.createElement('a');
