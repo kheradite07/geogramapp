@@ -120,42 +120,84 @@ export default function MessageDetails({
 
             // 3. Share based on Platform
             if (Capacitor.isNativePlatform()) {
-                // Native: Write to file system first
-                const fileName = `geogram-share-${Date.now()}.png`;
-                const savedFile = await Filesystem.writeFile({
+                // Try to share directly to Instagram first (User request: "Instagram stories priority")
+                // We use cordova-plugin-x-socialsharing for this
+                const socialSharing = (window as any).plugins?.socialsharing;
+
+                if (socialSharing) {
+                    // Check if we can share to Instagram
+                    socialSharing.canShareVia('instagram', 'Check', null, dataUrl, null,
+                        (e: any) => {
+                            // Success callback for canShareVia - implies Instagram is installed
+                            // Attempt to share specifically to Instagram
+                            socialSharing.shareViaInstagram(
+                                "", // Message - often ignored or copied to clipboard
+                                dataUrl, // Image
+                                null, // URL
+                                () => {
+                                    setIsSharing(false); // Success
+                                },
+                                (err: any) => {
+                                    console.error("Instagram share failed", err);
+                                    // Fallback to generic share on error
+                                    genericShare(dataUrl);
+                                }
+                            );
+                        },
+                        (e: any) => {
+                            console.log("Instagram not available, falling back");
+                            genericShare(dataUrl);
+                        }
+                    );
+                } else {
+                    console.warn("SocialSharing plugin not found");
+                    genericShare(dataUrl);
+                }
+            } else {
+                // Web Share
+                genericShare(dataUrl);
+            }
+
+        } catch (error) {
+            console.error("Error generating/sharing image:", error);
+            setIsSharing(false);
+        }
+    };
+
+    const genericShare = async (dataUrl: string) => {
+        try {
+            if (process.env.NEXT_PUBLIC_CAPACITOR_PLATFORM !== 'web') {
+                // Native generic share
+                const fileName = `share-${Date.now()}.png`;
+                const file = await Filesystem.writeFile({
                     path: fileName,
                     data: dataUrl,
                     directory: Directory.Cache
                 });
 
                 await Share.share({
-                    title: 'Check out this post on Geogram!',
-                    text: `"${message.text}" - ${message.userName}`,
-                    url: savedFile.uri,
-                    dialogTitle: 'Share to Instagram Stories'
+                    files: [file.uri],
                 });
             } else {
-                // Web Fallback (Navigator Share or Download)
+                // Web Share
                 const blob = await (await fetch(dataUrl)).blob();
-                const file = new File([blob], "geogram-share.png", { type: "image/png" });
+                const file = new File([blob], "share.png", { type: blob.type });
 
                 if (navigator.share && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         files: [file],
-                        title: 'Geogram Post',
-                        text: message.text
+                        title: 'Share Post',
                     });
                 } else {
-                    // Download fallback
+                    // Fallback to download
                     const link = document.createElement('a');
-                    link.download = 'geogram-share.png';
+                    link.download = 'share.png';
                     link.href = dataUrl;
                     link.click();
                 }
             }
-
-        } catch (error) {
-            console.error("Sharing failed:", error);
+        } catch (err) {
+            console.error("Generic share failed", err);
         } finally {
             setIsSharing(false);
         }
