@@ -6,6 +6,7 @@ import VoteControls from "./VoteControls";
 import { customMapStyle } from "@/lib/mapboxStyle"; // Import Style
 import Map from "react-map-gl/mapbox"; // Import Map
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { useTranslation } from "@/context/LocalizationContext";
 
 interface InstagramStoriesPlugin {
     shareToStory(options: { base64: string; attributionLink?: string }): Promise<void>;
@@ -15,9 +16,11 @@ const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStorie
 import { toPng } from "html-to-image";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { Check, Clock, UserPlus, X, Send, Share as ShareIcon, Instagram, MoreHorizontal, MessageCircle, Heart, MoreVertical, Flag, Ban, ThumbsUp, ThumbsDown } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, ThumbsUp, ThumbsDown, Check, UserPlus, Clock, Share as ShareIcon, Shield, Send, Crown, Instagram, MoreHorizontal, MoreVertical, Flag, Ban } from "lucide-react";
+import { BADGE_CONFIGS } from "@/lib/badgeConfig";
 import { motion, AnimatePresence } from "framer-motion";
 import { Message, Comment } from "@/lib/store";
+import BadgeEarnedModal from "./BadgeEarnedModal";
 
 // Consolidating icons to avoid conflicts
 const Icons = {
@@ -51,11 +54,13 @@ export default function MessageDetails({
     unlimitedVotes,
     locationName
 }: MessageDetailsProps) {
+    const { t } = useTranslation();
     const router = useRouter();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState("");
     const [isLoadingComments, setIsLoadingComments] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
 
     const isFriend = getFriendStatus(message.userId) === 'friend';
 
@@ -91,8 +96,16 @@ export default function MessageDetails({
             });
 
             if (response.ok) {
-                const comment = await response.json();
-                setComments(prev => [...prev, comment]);
+                const data = await response.json();
+                // Comment API now returns { ...comment, userUpdates: { earnedBadges } }
+                const comment = data.userUpdates ? data : data; // Fallback if structure varies
+
+                if (data.userUpdates?.earnedBadges?.length > 0) {
+                    setEarnedBadges(data.userUpdates.earnedBadges);
+                }
+
+                // Add to list
+                setComments(prev => [...prev, data]);
                 setNewComment("");
             }
         } catch (error) {
@@ -231,8 +244,8 @@ export default function MessageDetails({
                 const file = new File([blob], "share.png", { type: blob.type });
                 const shareData = {
                     files: [file],
-                    title: 'Share Post',
-                    text: `Check out this post by ${message.userName} on Geogram!`,
+                    title: t('share_post_title'),
+                    text: t('share_post_text').replace('{name}', message.userName),
                 };
 
                 if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -303,11 +316,21 @@ export default function MessageDetails({
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-white font-bold text-base leading-tight truncate group-hover/user:text-purple-300 transition-colors">
-                                    {message.userName}
-                                </h3>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    <h3 className="text-white font-bold text-base leading-tight truncate group-hover/user:text-purple-300 transition-colors">
+                                        {message.userName}
+                                    </h3>
+                                    {message.activeBadgeId && BADGE_CONFIGS[message.activeBadgeId] && (
+                                        <span
+                                            title={t(BADGE_CONFIGS[message.activeBadgeId].nameKey)}
+                                            className={`flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[message.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                        >
+                                            {BADGE_CONFIGS[message.activeBadgeId].icon}
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-white/40 text-[10px] font-medium truncate">
-                                    {message.isAnonymous ? "Anonymous User" : "View Profile"}
+                                    {message.isAnonymous ? t('anonymous_user') : t('view_profile_action')}
                                 </p>
                             </div>
                         </div>
@@ -378,7 +401,7 @@ export default function MessageDetails({
 
                         <div className="text-right space-y-0.5">
                             <div className="flex items-center justify-end text-xs text-white/40 gap-1.5">
-                                <span>{formatRelativeTime(message.timestamp)} ago</span>
+                                <span>{formatRelativeTime(message.timestamp)} {t('ago')}</span>
                             </div>
                             {locationName && (
                                 <div className="text-[10px] text-purple-300/60 font-medium truncate max-w-[120px]">
@@ -390,7 +413,7 @@ export default function MessageDetails({
 
                     {/* Comments Section */}
                     <div className="space-y-2 mt-3 border-t border-white/10 pt-3 pointer-events-auto">
-                        <h4 className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Comments ({comments.length})</h4>
+                        <h4 className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">{t('comments_count')} ({comments.length})</h4>
 
                         {/* Comments List */}
                         <div
@@ -405,9 +428,9 @@ export default function MessageDetails({
                                 }
                             `}</style>
                             {isLoadingComments ? (
-                                <div className="text-white/40 text-[10px] text-center py-2">Loading comments...</div>
+                                <div className="text-white/40 text-[10px] text-center py-2">{t('loading_comments')}</div>
                             ) : comments.length === 0 ? (
-                                <div className="text-white/40 text-[10px] text-center py-2">No comments yet. Be the first!</div>
+                                <div className="text-white/40 text-[10px] text-center py-2">{t('no_comments_yet')}</div>
                             ) : (
                                 comments.map((comment) => (
                                     <div key={comment.id} className="bg-white/5 rounded-lg p-2 border border-white/5">
@@ -457,7 +480,7 @@ export default function MessageDetails({
                                         e.currentTarget.focus();
                                     }}
                                     onTouchStart={(e) => e.stopPropagation()}
-                                    placeholder="Write a comment..."
+                                    placeholder={t('write_comment')}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-purple-500/50 pointer-events-auto cursor-text select-text z-50"
                                     style={{ pointerEvents: 'auto' }}
                                     disabled={isSubmitting}
@@ -609,11 +632,6 @@ export default function MessageDetails({
                                         <ThumbsUp size={10} className="text-white fill-current" /> {message.likes || 0}
                                     </div>
                                 </div>
-                                <div className="absolute -right-3 -bottom-3 flex flex-col gap-2 scale-90 origin-top-left">
-                                    <div className="bg-[#ef4444] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                        <ThumbsDown size={10} className="text-white fill-current" /> 0
-                                    </div>
-                                </div>
 
                             </div>
 
@@ -676,7 +694,7 @@ export default function MessageDetails({
                             >
                                 <div className="flex flex-col gap-4">
                                     <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-2" />
-                                    <h3 className="text-white text-center font-bold mb-2">Share to...</h3>
+                                    <h3 className="text-white text-center font-bold mb-2">{t('share_to')}</h3>
 
                                     <div className="grid grid-cols-4 gap-4 justify-items-center">
                                         {/* Instagram Option */}
@@ -687,7 +705,7 @@ export default function MessageDetails({
                                             <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-500 via-red-500 to-purple-500 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
                                                 <Icons.Instagram className="w-7 h-7 text-white" />
                                             </div>
-                                            <span className="text-xs text-white/80">Stories</span>
+                                            <span className="text-xs text-white/80">{t('stories')}</span>
                                         </button>
 
                                         {/* WhatsApp Option */}
@@ -709,7 +727,7 @@ export default function MessageDetails({
                                             <div className="w-14 h-14 rounded-full bg-white/10 border border-white/10 flex items-center justify-center shadow-lg group-active:scale-95 transition-transform">
                                                 <Icons.More className="w-7 h-7 text-white" />
                                             </div>
-                                            <span className="text-xs text-white/80">More</span>
+                                            <span className="text-xs text-white/80">{t('more')}</span>
                                         </button>
                                     </div>
 
@@ -717,13 +735,23 @@ export default function MessageDetails({
                                         onClick={() => setShowShareMenu(false)}
                                         className="mt-4 w-full py-3 bg-white/5 rounded-xl text-white font-medium hover:bg-white/10 active:scale-[0.98] transition-all"
                                     >
-                                        Cancel
+                                        {t('cancel')}
                                     </button>
                                 </div>
                             </div>
                         </motion.div>
                     </AnimatePresence>,
                     document.body
+                )
+            }
+
+            {/* Badge Celebration Overlay */}
+            {
+                earnedBadges.length > 0 && (
+                    <BadgeEarnedModal
+                        badgeId={earnedBadges[0]}
+                        onClose={() => setEarnedBadges(prev => prev.slice(1))}
+                    />
                 )
             }
         </motion.div >

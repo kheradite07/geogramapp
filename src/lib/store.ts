@@ -17,6 +17,7 @@ export type Message = {
     isAnonymous?: boolean;
     visibility?: 'public' | 'friends';
     userIsPremium?: boolean;
+    activeBadgeId?: string;
 };
 
 export type Comment = {

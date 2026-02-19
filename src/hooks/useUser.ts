@@ -83,6 +83,33 @@ export function useUser() {
         return res.ok;
     };
 
+    const toggleGhostException = async (targetUserId: string, action: 'add' | 'remove') => {
+        // Optimistic update
+        if (user) {
+            let exceptions = JSON.parse(user.ghostExceptions || "[]") as string[];
+            if (action === 'add') {
+                if (!exceptions.includes(targetUserId)) exceptions.push(targetUserId);
+            } else {
+                exceptions = exceptions.filter(id => id !== targetUserId);
+            }
+            mutate({ ...user, ghostExceptions: JSON.stringify(exceptions) }, false);
+        }
+
+        const res = await fetch(getApiUrl("/api/users/ghost-exceptions"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: 'include',
+            body: JSON.stringify({ targetUserId, action }),
+        });
+
+        if (res.ok) {
+            mutate();
+        } else {
+            mutate();
+        }
+        return res.ok;
+    };
+
     return {
         user,
         isLoading: !user && !error,
@@ -91,6 +118,7 @@ export function useUser() {
         toggleLocationPrivacy,
         searchUsers,
         handleFriendRequest,
+        toggleGhostException,
         mutate
     };
 }

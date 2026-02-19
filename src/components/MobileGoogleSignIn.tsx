@@ -3,8 +3,10 @@
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/context/LocalizationContext";
 
 export default function MobileGoogleSignIn() {
+    const { t } = useTranslation();
     const [isNative, setIsNative] = useState(false);
     const [GoogleAuth, setGoogleAuth] = useState<any>(null);
     const { update } = useSession();
@@ -98,7 +100,7 @@ export default function MobileGoogleSignIn() {
                     fill="#EA4335"
                 />
             </svg>
-            Sign in with Google
+            {t('sign_in_with_google')}
         </button>
     );
 }

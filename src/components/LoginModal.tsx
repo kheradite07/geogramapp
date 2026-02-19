@@ -7,9 +7,11 @@ import { useSession } from "next-auth/react";
 import MobileGoogleSignIn from "./MobileGoogleSignIn";
 import { useEffect, useState } from "react";
 import GeogramLogo from "./GeogramLogo";
+import { useTranslation } from "@/context/LocalizationContext";
 
 export default function LoginModal() {
     const { isLoginModalOpen, setLoginModalOpen } = useUI();
+    const { t } = useTranslation();
     const { data: session } = useSession();
     const [isMobile, setIsMobile] = useState(false);
 
@@ -84,7 +86,7 @@ export default function LoginModal() {
 
                                 <div className="space-y-2">
                                     <p className="text-sm text-white/60">
-                                        Connect with your local community. <br /> Sign in to start posting and discovering.
+                                        {t('login_desc')}
                                     </p>
                                 </div>
 
@@ -97,17 +99,17 @@ export default function LoginModal() {
                                     {/* Mock Apple Sign In (Visual Only for now) */}
                                     <button
                                         className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition-all bg-black rounded-lg hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 border border-white/10"
-                                        onClick={() => alert("Apple Sign In coming soon!")}
+                                        onClick={() => alert(t('apple_coming_soon'))}
                                     >
                                         <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.127 3.675-.552 9.127 1.519 12.153 1.015 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.026-4.61 1.026zM15.521 3.3c.857-1.052 1.429-2.481 1.286-3.3-1.247.065-2.73 1.04-3.568 2.028-.756.892-1.39 2.373-1.221 3.256 1.36.143 2.662-1.026 3.503-1.984z" />
                                         </svg>
-                                        Sign in with Apple
+                                        {t('sign_in_with_apple')}
                                     </button>
                                 </div>
 
-                                <p className="text-xs text-white/30 pt-4">
-                                    By signing in, you agree to our Terms of Service <br /> and Privacy Policy.
+                                <p className="text-xs text-white/30 pt-4 px-4 leading-relaxed">
+                                    {t('terms_policy')}
                                 </p>
                             </div>
                         </motion.div>

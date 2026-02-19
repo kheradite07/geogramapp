@@ -22,9 +22,18 @@ export interface User {
 
     // Privacy
     hideLocationFromFriends: boolean;
+    ghostExceptions: string; // JSON array of friend user IDs
     level?: number;
     xp?: number;
     isPremium?: boolean;
+
+    // Badge System
+    activeBadgeId?: string;
+    badges: {
+        id: string;
+        badgeId: string;
+        earnedAt: Date;
+    }[];
 
     // Relations (simplified for frontend use)
     friends: {
@@ -48,34 +57,51 @@ type UserWithRelations = Prisma.UserGetPayload<{
     include: {
         friendsRequested: { include: { receiver: true } };
         friendsReceived: { include: { requester: true } };
+        badges: true;
     }
 }> & { bio?: string | null };
 
-export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations): User {
+export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewingUserId?: string): User {
+    const viewingId = viewingUserId || "";
+
     // Combine friends from both directions
     const friends = [
         ...prismaUser.friendsRequested
             .filter(f => f.status === 'accepted')
-            .map(f => ({
-                id: f.receiver.id,
-                name: f.receiver.fullName || f.receiver.name || "Unknown",
-                username: f.receiver.username || undefined,
-                image: f.receiver.image || undefined,
-                lastLat: f.receiver.hideLocationFromFriends ? undefined : (f.receiver.lastLat || undefined),
-                lastLng: f.receiver.hideLocationFromFriends ? undefined : (f.receiver.lastLng || undefined),
-                lastSeen: f.receiver.hideLocationFromFriends ? undefined : (f.receiver.lastSeen || undefined)
-            })),
+            .map(f => {
+                const friend = f.receiver as any;
+                const exceptions = JSON.parse(friend.ghostExceptions || "[]") as string[];
+                const isException = exceptions.includes(viewingId);
+                const shouldHideLocation = friend.hideLocationFromFriends && !isException;
+
+                return {
+                    id: friend.id,
+                    name: friend.fullName || friend.name || "Unknown",
+                    username: friend.username || undefined,
+                    image: friend.image || undefined,
+                    lastLat: shouldHideLocation ? undefined : (friend.lastLat || undefined),
+                    lastLng: shouldHideLocation ? undefined : (friend.lastLng || undefined),
+                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined)
+                };
+            }),
         ...prismaUser.friendsReceived
             .filter(f => f.status === 'accepted')
-            .map(f => ({
-                id: f.requester.id,
-                name: f.requester.fullName || f.requester.name || "Unknown",
-                username: f.requester.username || undefined,
-                image: f.requester.image || undefined,
-                lastLat: f.requester.hideLocationFromFriends ? undefined : (f.requester.lastLat || undefined),
-                lastLng: f.requester.hideLocationFromFriends ? undefined : (f.requester.lastLng || undefined),
-                lastSeen: f.requester.hideLocationFromFriends ? undefined : (f.requester.lastSeen || undefined)
-            }))
+            .map(f => {
+                const friend = f.requester as any;
+                const exceptions = JSON.parse(friend.ghostExceptions || "[]") as string[];
+                const isException = exceptions.includes(viewingId);
+                const shouldHideLocation = friend.hideLocationFromFriends && !isException;
+
+                return {
+                    id: friend.id,
+                    name: friend.fullName || friend.name || "Unknown",
+                    username: friend.username || undefined,
+                    image: friend.image || undefined,
+                    lastLat: shouldHideLocation ? undefined : (friend.lastLat || undefined),
+                    lastLng: shouldHideLocation ? undefined : (friend.lastLng || undefined),
+                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined)
+                };
+            })
     ];
 
     const incoming = prismaUser.friendsReceived
@@ -106,12 +132,19 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations): User
         isOnboarded: prismaUser.isOnboarded,
         isAnonymous: prismaUser.isAnonymous,
         hideLocationFromFriends: prismaUser.hideLocationFromFriends,
+        ghostExceptions: (prismaUser as any).ghostExceptions || "[]",
         level: prismaUser.level ?? 1,
         xp: prismaUser.xp ?? 0,
         isPremium: prismaUser.isPremium ?? false,
         lastLat: prismaUser.lastLat || undefined,
         lastLng: prismaUser.lastLng || undefined,
         lastSeen: prismaUser.lastSeen || undefined,
+        activeBadgeId: (prismaUser as any).activeBadgeId || undefined,
+        badges: ((prismaUser as any).badges || []).map((b: any) => ({
+            id: b.id,
+            badgeId: b.badgeId,
+            earnedAt: b.earnedAt
+        })),
         friends,
         friendRequests: {
             incoming,

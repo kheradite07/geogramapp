@@ -1,25 +1,134 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { useUser } from "@/hooks/useUser";
-import { User, Shield, LogOut, Settings } from "lucide-react";
+import { User, Shield, LogOut, Settings, Settings2, Globe, Check, Loader2, X, Crown, Lock } from "lucide-react";
 import { signOut } from "next-auth/react";
 import AuthPrompt from "@/components/AuthPrompt";
 import { supabase } from "@/lib/supabase";
 import { getLevelProgress, getXPForNextLevel, getLevelTitle } from "@/lib/gameLogic";
+import { useTranslation } from "@/context/LocalizationContext";
+import { Language } from "@/lib/translations";
+import { BADGE_CONFIGS } from "@/lib/badgeConfig";
+import BadgeInfoModal from "@/components/BadgeInfoModal";
+
+const LANGUAGES = [
+    { code: 'en', name: 'English', native: 'English', flag: '🇺🇸' },
+    { code: 'tr', name: 'Turkish', native: 'Türkçe', flag: '🇹🇷' },
+    { code: 'es', name: 'Spanish', native: 'Español', flag: '🇪🇸' },
+    { code: 'de', name: 'German', native: 'Deutsch', flag: '🇩🇪' },
+    { code: 'fr', name: 'French', native: 'Français', flag: '🇫🇷' },
+    { code: 'ru', name: 'Russian', native: 'Русский', flag: '🇷🇺' },
+    { code: 'zh-Hans', name: 'Chinese (Simplified)', native: '简体中文', flag: '🇨🇳' },
+    { code: 'zh-Hant', name: 'Chinese (Traditional)', native: '繁體中文', flag: '🇭🇰' },
+    // { code: 'ar', name: 'Arabic', native: 'العربية', flag: '🇸🇦' },
+    { code: 'ja', name: 'Japanese', native: '日本語', flag: '🇯🇵' },
+    { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia', flag: '🇮🇩' },
+    { code: 'th', name: 'Thai', native: 'ไทย', flag: '🇹🇭' },
+    { code: 'hi', name: 'Hindi', native: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'it', name: 'Italian', native: 'Italiano', flag: '🇮🇹' },
+    { code: 'pt', name: 'Portuguese', native: 'Português', flag: '🇵🇹' },
+    { code: 'pl', name: 'Polish', native: 'Polski', flag: '🇵🇱' },
+    { code: 'ko', name: 'Korean', native: '한국어', flag: '🇰🇷' }
+];
+
+function LanguageDropdown({ lang, setLanguage }: { lang: string, setLanguage: (l: Language) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedLang = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0];
+
+    return (
+        <div className="flex flex-col gap-2">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full bg-white/5 border transition-all rounded-2xl p-4 flex items-center justify-between group shadow-lg active:scale-95 duration-200 ${isOpen ? 'border-purple-500/50 bg-purple-500/10' : 'border-white/10 hover:bg-white/10'
+                    }`}
+            >
+                <div className="flex items-center gap-3">
+                    <span className="text-2xl drop-shadow-sm">{selectedLang.flag}</span>
+                    <div className="text-left">
+                        <div className="text-white font-bold">{selectedLang.native}</div>
+                        <div className="text-white/40 text-[10px] uppercase tracking-widest">{selectedLang.name}</div>
+                    </div>
+                </div>
+                <motion.div
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                    <Settings2 size={18} className={`transition-colors ${isOpen ? 'text-purple-400' : 'text-white/40 group-hover:text-purple-400'}`} />
+                </motion.div>
+            </button>
+
+            <AnimatePresence initial={false}>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+                        className="overflow-hidden"
+                    >
+                        <div className="bg-[#1a0033]/40 border border-white/5 rounded-2xl p-2 mt-1 max-h-[220px] overflow-y-auto custom-scrollbar shadow-inner">
+                            <style>{`
+                                .custom-scrollbar::-webkit-scrollbar {
+                                    width: 4px;
+                                }
+                                .custom-scrollbar::-webkit-scrollbar-track {
+                                    background: rgba(255, 255, 255, 0.05);
+                                    border-radius: 10px;
+                                }
+                                .custom-scrollbar::-webkit-scrollbar-thumb {
+                                    background: rgba(168, 85, 247, 0.4);
+                                    border-radius: 10px;
+                                }
+                                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                                    background: rgba(168, 85, 247, 0.6);
+                                }
+                            `}</style>
+                            <div className="grid grid-cols-1 gap-1">
+                                {LANGUAGES.map((l) => (
+                                    <button
+                                        key={l.code}
+                                        onClick={() => {
+                                            setLanguage(l.code as Language);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`flex items-center gap-4 p-2.5 rounded-xl transition-all duration-200 active:scale-98 ${lang === l.code
+                                            ? 'bg-purple-600/30 border border-purple-500/40 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]'
+                                            : 'text-white/60 hover:bg-white/5 border border-transparent'
+                                            }`}
+                                    >
+                                        <span className="text-2xl drop-shadow-sm">{l.flag}</span>
+                                        <div className="flex-1 text-left">
+                                            <div className="font-bold text-sm">{l.native}</div>
+                                            <div className="text-[9px] opacity-40 uppercase tracking-widest leading-none">{l.name}</div>
+                                        </div>
+                                        {lang === l.code && <Check size={16} className="text-purple-400 animate-in zoom-in duration-300" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
 
 export default function SettingsView() {
-    const { user, toggleAnonymity, toggleLocationPrivacy, isLoading } = useUser();
+    const { user, toggleAnonymity, toggleLocationPrivacy, isLoading, mutate } = useUser();
+    const { t, lang, setLanguage } = useTranslation();
     const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState({ name: "", bio: "", image: "" });
+    const [editData, setEditData] = useState({ name: "", username: "", bio: "", image: "" });
     const [isUploading, setIsUploading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const startEditing = () => {
         if (!user) return;
-        setEditForm({
+        setEditData({
             name: user.fullName || user.name || "",
+            username: user.username || "",
             bio: user.bio || "",
             image: user.image || ""
         });
@@ -51,12 +160,30 @@ export default function SettingsView() {
                 .from('avatars')
                 .getPublicUrl(filePath);
 
-            setEditForm(prev => ({ ...prev, image: data.publicUrl }));
+            setEditData(prev => ({ ...prev, image: data.publicUrl }));
         } catch (error) {
             console.error('Error uploading image:', error);
             alert('Failed to upload image. Please try again.');
         } finally {
             setIsUploading(false);
+        }
+    };
+
+    const [selectedBadgeId, setSelectedBadgeId] = useState<string | null>(null);
+
+    const handleSelectBadge = async (badgeId: string) => {
+        try {
+            const res = await fetch('/api/users/update', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ activeBadgeId: badgeId })
+            });
+            if (res.ok) {
+                mutate(); // Refresh user state from SWR without page reload
+            }
+        } catch (error) {
+            console.error("Failed to select badge:", error);
         }
     };
 
@@ -66,11 +193,11 @@ export default function SettingsView() {
             const res = await fetch("/api/users/update", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(editForm),
+                body: JSON.stringify(editData),
             });
 
             if (res.ok) {
-                window.location.reload();
+                mutate(); // Revalidate user data
             }
         } catch (error) {
             console.error("Failed to save", error);
@@ -89,8 +216,8 @@ export default function SettingsView() {
             <div className="w-full h-full flex flex-col p-4 pt-20 pointer-events-auto bg-black/80 backdrop-blur-md">
                 <AuthPrompt
                     icon={Settings}
-                    title="Manage Your Experience"
-                    description="Sign in to customize your profile, privacy settings, and map preferences."
+                    title={t('manage_your_experience')}
+                    description={t('ghost_mode_desc')}
                 />
             </div>
         );
@@ -100,7 +227,7 @@ export default function SettingsView() {
         <div className="w-full h-full flex flex-col p-4 pt-20 pb-24 pointer-events-auto bg-[#120024]/80 backdrop-blur-2xl overflow-y-auto">
             <div className="max-w-md mx-auto w-full space-y-8">
                 <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-indigo-300 drop-shadow-sm mb-6 pl-1">
-                    Settings
+                    {t('settings')}
                 </h1>
 
                 {/* Profile Card & Settings */}
@@ -128,13 +255,14 @@ export default function SettingsView() {
                     {!isEditing && (
                         <button
                             onClick={startEditing}
-                            className={`absolute top-4 right-4 text-xs font-semibold px-4 py-2 rounded-full transition-all border shadow-lg active:scale-95 z-10
+                            className={`absolute top-4 right-4 p-2.5 rounded-xl transition-all border shadow-lg active:scale-95 z-40
                                 ${user.isPremium
                                     ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-200 border-yellow-500/30 hover:border-yellow-500/50 hover:shadow-yellow-500/10'
                                     : 'bg-white/10 hover:bg-white/20 text-white border-white/10 hover:border-white/20 hover:shadow-purple-500/10'
                                 }`}
+                            title={t('edit_profile')}
                         >
-                            Edit Profile
+                            <Settings2 size={18} />
                         </button>
                     )}
 
@@ -146,7 +274,7 @@ export default function SettingsView() {
                                         ${user.isPremium ? 'bg-gradient-to-tr from-yellow-500 to-orange-500' : 'bg-gradient-to-tr from-purple-500 to-indigo-500'}`}
                                     ></div>
                                     <img
-                                        src={editForm.image || user.image || "https://via.placeholder.com/150"}
+                                        src={editData.image || user.image || "https://via.placeholder.com/150"}
                                         alt="Preview"
                                         className="relative w-full h-full rounded-full object-cover opacity-60 border-2 border-white/20 z-10"
                                     />
@@ -156,7 +284,7 @@ export default function SettingsView() {
                                         ) : (
                                             <div className="flex flex-col items-center drop-shadow-md">
                                                 <User className="text-white mb-1" size={24} />
-                                                <span className="text-[10px] text-white font-bold text-center leading-tight uppercase tracking-wide">Upload<br />Photo</span>
+                                                <span className="text-[10px] text-white font-bold text-center leading-tight uppercase tracking-wide">Photo</span>
                                             </div>
                                         )}
                                     </div>
@@ -172,23 +300,36 @@ export default function SettingsView() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>Full Name</label>
+                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('full_name')}</label>
                                     <input
                                         type="text"
-                                        value={editForm.name}
-                                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                        value={editData.name}
+                                        onChange={e => setEditData({ ...editData, name: e.target.value })}
                                         className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all shadow-inner"
-                                        placeholder="Your Name"
+                                        placeholder={t('full_name')}
+                                        maxLength={16}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>Bio</label>
+                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('username')}</label>
+                                    <input
+                                        type="text"
+                                        value={editData.username}
+                                        onChange={e => setEditData({ ...editData, username: e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, '') })}
+                                        className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all shadow-inner"
+                                        placeholder={t('username')}
+                                        maxLength={16}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('bio')}</label>
                                     <textarea
-                                        value={editForm.bio}
-                                        onChange={e => setEditForm({ ...editForm, bio: e.target.value })}
+                                        value={editData.bio}
+                                        onChange={e => setEditData({ ...editData, bio: e.target.value })}
                                         className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all shadow-inner min-h-[100px] resize-none"
-                                        placeholder="Tell us about yourself..."
+                                        placeholder={t('bio')}
                                     />
                                 </div>
                             </div>
@@ -198,7 +339,7 @@ export default function SettingsView() {
                                     onClick={() => setIsEditing(false)}
                                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-semibold transition-colors border border-white/5"
                                 >
-                                    Cancel
+                                    {t('cancel')}
                                 </button>
                                 <button
                                     onClick={handleSave}
@@ -209,7 +350,7 @@ export default function SettingsView() {
                                             : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-900/40'
                                         }`}
                                 >
-                                    {isSaving ? "Saving..." : "Save Changes"}
+                                    {isSaving ? <Loader2 className="animate-spin mx-auto" size={20} /> : t('save')}
                                 </button>
                             </div>
                         </div>
@@ -237,6 +378,14 @@ export default function SettingsView() {
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                     <h2 className="text-2xl font-bold text-white truncate leading-tight">{user.fullName || user.name}</h2>
+                                    {user.activeBadgeId && BADGE_CONFIGS[user.activeBadgeId] && (
+                                        <span
+                                            title={t(BADGE_CONFIGS[user.activeBadgeId].nameKey)}
+                                            className={`flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[user.activeBadgeId].style} text-xs shadow-lg transform rotate-12 ring-1 ring-white/20`}
+                                        >
+                                            {BADGE_CONFIGS[user.activeBadgeId].icon}
+                                        </span>
+                                    )}
                                     {user.isPremium && (
                                         <span className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                                             Premium
@@ -260,7 +409,7 @@ export default function SettingsView() {
 
                     <div className="flex justify-between items-end mb-2">
                         <div>
-                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">Seviye</div>
+                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">{t('level')}</div>
                             <div className="flex items-baseline gap-2">
                                 <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
                                     {user.level || 1}
@@ -272,7 +421,7 @@ export default function SettingsView() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">XP Points</div>
+                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">{t('xp_points')}</div>
                             <div className="text-xl font-bold text-white font-mono">
                                 {user.xp || 0} <span className="text-white/40 text-sm">/ {getXPForNextLevel(user.level || 1)}</span>
                             </div>
@@ -297,58 +446,94 @@ export default function SettingsView() {
                             <span className="text-purple-300">
                                 {Math.ceil(getLevelProgress(user.xp || 0).total - getLevelProgress(user.xp || 0).current)} XP
                             </span>
-                            <span className="opacity-80">to next level</span>
+                            <span className="opacity-80">{t('to_next_level')}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Premium Membership Upsell (Only if NOT premium) */}
-                {!user.isPremium && (
-                    <div className="relative overflow-hidden rounded-3xl p-6 shadow-2xl group cursor-pointer border border-yellow-500/30">
-                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-900/40 to-black"></div>
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-yellow-500/20 rounded-full blur-3xl group-hover:bg-yellow-500/30 transition-all duration-500"></div>
-
-                        <div className="relative z-10 flex flex-col items-start">
-                            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3 shadow-lg shadow-yellow-500/20">
-                                Premium Access
+                {/* Badge Collection Section */}
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 shadow-xl backdrop-blur-md">
+                    <div className="flex items-center justify-between mb-6 pl-1">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-yellow-500/20 flex items-center justify-center text-yellow-400">
+                                <Crown size={18} />
                             </div>
-                            <h3 className="text-2xl font-bold text-white mb-2 leading-tight">
-                                Unlock Limitless<br />Expression
-                            </h3>
-                            <ul className="space-y-2 mb-6">
-                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
-                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
-                                    Unlimited Daily Posts
-                                </li>
-                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
-                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
-                                    Exclusive Gold Map Marker
-                                </li>
-                                <li className="flex items-center gap-2 text-sm text-yellow-100/80">
-                                    <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-xs">✓</div>
-                                    Premium Crown Badge
-                                </li>
-                            </ul>
-                            <button className="w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/25 active:scale-95">
-                                Upgrade Now
-                            </button>
+                            <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t('badges_collection')}</h2>
                         </div>
                     </div>
-                )}
+
+                    <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                        {Object.values(BADGE_CONFIGS).map((config) => {
+                            const userBadge = user.badges?.find(b => b.badgeId === config.id);
+                            const isEarned = !!userBadge;
+                            const isActive = user.activeBadgeId === config.id;
+
+                            return (
+                                <div key={config.id} className="flex flex-col items-center gap-2">
+                                    <button
+                                        onClick={() => setSelectedBadgeId(config.id)}
+                                        className={`relative w-14 h-14 flex items-center justify-center rounded-full border-2 transition-all duration-500 group shadow-[0_4px_15px_rgba(0,0,0,0.3)] hover:scale-110 active:scale-95 cursor-pointer bg-gradient-to-br ${config.style} ${isEarned
+                                            ? 'border-white/20 opacity-100'
+                                            : 'border-white/5 opacity-60 grayscale-[0.3]'
+                                            } ${isActive ? 'ring-2 ring-white ring-offset-2 ring-offset-[#120024] scale-110' : ''}`}
+                                    >
+                                        <span className={`text-5xl absolute transition-all duration-500 z-10 drop-shadow-2xl ${isEarned ? 'group-hover:rotate-12 group-hover:scale-125' : 'group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110'}`}>
+                                            {config.icon}
+                                        </span>
+
+                                        {!isEarned && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full group-hover:bg-black/20 transition-colors z-20">
+                                                <Lock size={16} className="text-white/80 drop-shadow-md" />
+                                            </div>
+                                        )}
+
+                                        {isActive && (
+                                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg ring-2 ring-[#120024] animate-in zoom-in-0 duration-300 z-30">
+                                                <Check className="text-[#120024]" size={10} strokeWidth={4} />
+                                            </div>
+                                        )}
+                                    </button>
+                                    <div className="relative mt-[-20px] group z-40 w-full flex justify-center items-center pointer-events-none">
+                                        {/* Arched Ribbon Wings (Back) */}
+                                        <div
+                                            className={`absolute left-[calc(50%-36px)] top-3 w-8 h-4 -z-20 brightness-[0.3] bg-gradient-to-br ${config.style} [clip-path:polygon(100%_0,0_50%,100%_100%)] group-hover:left-[calc(50%-42px)] transition-all duration-300 shadow-2xl`}
+                                        />
+                                        <div
+                                            className={`absolute right-[calc(50%-36px)] top-3 w-8 h-4 -z-20 brightness-[0.3] bg-gradient-to-br ${config.style} [clip-path:polygon(0_0,100%_50%,0_100%)] group-hover:right-[calc(50%-42px)] transition-all duration-300 shadow-2xl`}
+                                        />
+
+                                        {/* Fold Shadows */}
+                                        <div className="absolute left-[calc(50%-26px)] top-1 w-3 h-5 -z-10 bg-black/60 skew-y-[30deg]" />
+                                        <div className="absolute right-[calc(50%-26px)] top-1 w-3 h-5 -z-10 bg-black/60 -skew-y-[30deg]" />
+
+                                        {/* Arched Ribbon Body (Front) */}
+                                        <div className={`relative px-4 py-2 bg-gradient-to-br ${config.style} shadow-[0_8px_25px_rgba(0,0,0,0.7)] border-t border-white/50 min-w-[70px] max-w-[90px] flex items-center justify-center overflow-hidden
+                                            [clip-path:polygon(0_15%,_50%_0%,_100%_15%,_100%_85%,_50%_100%,_0_85%)]
+                                            before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/30 before:to-transparent before:opacity-50
+                                            after:absolute after:inset-0 after:bg-gradient-to-r after:from-black/30 after:via-transparent after:to-black/30`}>
+                                            <span className={`relative z-10 text-[11px] font-black uppercase tracking-tight text-center leading-none transition-all duration-500 drop-shadow-[0_2px_4px_rgba(0,0,0,1)] whitespace-nowrap overflow-hidden text-ellipsis px-1 ${isEarned ? 'text-white' : 'text-white/80'}`}>
+                                                {t(config.nameKey)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
 
                 {/* Privacy Settings */}
                 <div className="space-y-4">
                     <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 pl-1">
                         <Shield size={14} />
-                        Privacy & Visibility
+                        Privacy
                     </h3>
 
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors">Hide Profile</div>
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">{t('hide_profile')}</div>
                             <div className="text-white/40 text-xs leading-relaxed">
-                                Post anonymously on the map. Your name and photo will be hidden from others.
+                                {t('hide_profile_desc')}
                             </div>
                         </div>
                         <button
@@ -366,9 +551,9 @@ export default function SettingsView() {
 
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors">Ghost Mode</div>
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">{t('ghost_mode')}</div>
                             <div className="text-white/40 text-xs leading-relaxed">
-                                Hide your precise location from friends on the map. You will appear offline.
+                                {t('ghost_mode_desc')}
                             </div>
                         </div>
                         <button
@@ -385,17 +570,72 @@ export default function SettingsView() {
                     </div>
                 </div>
 
-                {/* Actions */}
+                {/* Go Premium Section */}
+                {!user.isPremium && (
+                    <div className="relative overflow-hidden bg-gradient-to-br from-yellow-900/40 via-black to-black border-2 border-yellow-500/50 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 rounded-full blur-[60px] -mr-10 -mt-10 pointer-events-none animate-pulse"></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center text-yellow-400">
+                                    <Crown size={22} />
+                                </div>
+                                <h2 className="text-xl font-black text-yellow-300 uppercase tracking-tight">{t('go_premium')}</h2>
+                            </div>
+                            <p className="text-yellow-100/70 text-sm mb-6 leading-relaxed">
+                                {t('premium_desc')}
+                            </p>
+                            <button
+                                onClick={() => alert(t('premium_coming_soon'))}
+                                className="w-full py-4 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-black font-black rounded-2xl transition-all shadow-xl shadow-yellow-500/20 active:scale-95 uppercase tracking-wider text-sm"
+                            >
+                                {t('upgrade_premium')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Language Section */}
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 shadow-xl backdrop-blur-md">
+                    <div className="flex items-center gap-3 mb-6 pl-1">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
+                            <Globe size={18} />
+                        </div>
+                        <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t('language')}</h2>
+                    </div>
+
+                    <LanguageDropdown lang={lang} setLanguage={setLanguage} />
+                </div>
+
+                {/* Account Actions */}
                 <div className="pt-4 pb-8">
                     <button
                         onClick={() => signOut()}
-                        className="w-full bg-red-500/5 hover:bg-red-500/10 text-red-500 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 rounded-2xl py-4 px-6 flex items-center justify-center gap-2 font-semibold transition-all duration-300"
+                        className="w-full group bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 rounded-2xl p-4 flex items-center justify-between transition-all duration-300 shadow-lg shadow-red-500/5 group"
                     >
-                        <LogOut size={18} />
-                        Sign Out
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
+                                <LogOut size={20} />
+                            </div>
+                            <span className="text-red-400 font-bold">{t('logout')}</span>
+                        </div>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500/30 group-hover:text-red-500/60 transition-colors">
+                            <X size={18} />
+                        </div>
                     </button>
                 </div>
             </div>
+
+            {/* Badge Info Modal */}
+            <BadgeInfoModal
+                badgeId={selectedBadgeId}
+                isEarned={!!user.badges?.find(b => b.badgeId === selectedBadgeId)}
+                isActive={user.activeBadgeId === selectedBadgeId}
+                onClose={() => setSelectedBadgeId(null)}
+                onActivate={(id) => {
+                    handleSelectBadge(id);
+                    setSelectedBadgeId(null);
+                }}
+            />
         </div>
     );
 }

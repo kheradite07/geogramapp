@@ -62,6 +62,7 @@ model User {
   
   // Privacy Settings
   hideLocationFromFriends Boolean @default(false)
+  ghostExceptions         String  @default("[]") // JSON array of friend user IDs
   
   accounts      Account[]
   sessions      Session[]
@@ -74,6 +75,30 @@ model User {
   friendsReceived  Friendship[] @relation("UserFriendRequestsReceived")
   
   pushTokens       PushToken[]
+  
+  // Badge System
+  activeBadgeId    String?
+  badges           UserBadge[]
+}
+
+model Badge {
+  id          String   @id
+  name        String
+  description String
+  style       String   // e.g., gradient or specific CSS effect
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
 }
 
 model VerificationToken {

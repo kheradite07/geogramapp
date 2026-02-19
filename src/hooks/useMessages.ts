@@ -14,40 +14,147 @@ export function useMessages() {
         refreshWhenOffline: false
     });
 
-    const sendMessage = async (text: string, lat: number, lng: number, visibility: 'public' | 'friends' = 'public') => {
-        const res = await fetch(getApiUrl("/api/messages"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: 'include',
-            body: JSON.stringify({ text, lat, lng, visibility }),
-        });
+    const sendMessage = async (text: string, lat: number, lng: number, visibility: 'public' | 'friends' = 'public', userContext?: any) => {
+        const optimisticMessage: Message = {
+            id: `temp-${Date.now()}`,
+            text,
+            lat,
+            lng,
+            timestamp: Date.now(),
+            userId: userContext?.id || 'me',
+            userName: userContext?.name || userContext?.userName || 'You',
+            userImage: userContext?.image || userContext?.userImage,
+            likes: 0,
+            dislikes: 0,
+            likedBy: [],
+            dislikedBy: [],
+            visibility,
+            activeBadgeId: userContext?.activeBadgeId
+        };
 
-        const data = await res.json();
+        const options = {
+            optimisticData: [...(data || []), optimisticMessage],
+            rollbackOnError: true,
+            populateCache: (serverRes: any) => {
+                // If the server returns a successful post result
+                if (serverRes && serverRes.success && serverRes.message) {
+                    const realMessage = serverRes.message;
+                    // Replace the temporary message with the real one to maintain list integrity
+                    // Also filter out any possible duplicates if the real message was already added by a background refresh
+                    const updatedData = (data || [])
+                        .map(m => m.id === optimisticMessage.id ? realMessage : m)
+                        .filter(m => m.id !== optimisticMessage.id || m.id === realMessage.id);
 
-        if (res.ok) {
-            mutate(); // Refresh validation
-            return { success: true, data, levelUp: data.levelUp, userUpdates: data.userUpdates };
-        } else {
-            return { success: false, error: data.error, isPremiumCallback: data.isPremiumCallback, resetTime: data.resetTime, status: res.status };
+                    if (!updatedData.find(m => m.id === realMessage.id)) {
+                        updatedData.push(realMessage);
+                    }
+                    return updatedData;
+                }
+                return data || [];
+            },
+            revalidate: true,
+        };
+
+        try {
+            const result = await mutate(
+                (async () => {
+                    const res = await fetch(getApiUrl("/api/messages"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: 'include',
+                        body: JSON.stringify({ text, lat, lng, visibility }),
+                    });
+
+                    const resData = await res.json();
+
+                    if (!res.ok) {
+                        const error: any = new Error(resData.error || "Failed to post message");
+                        error.status = res.status;
+                        error.isPremiumCallback = resData.isPremiumCallback;
+                        error.resetTime = resData.resetTime;
+                        throw error;
+                    }
+
+                    return resData; // Return data for mutate to handle if needed
+                })(),
+                options
+            );
+
+            // Mutate returns the resolved data from the promise above (resData)
+            const resData = result as any;
+            return {
+                success: true,
+                data: resData,
+                levelUp: resData?.levelUp,
+                userUpdates: resData?.userUpdates
+            };
+        } catch (err: any) {
+            console.error("Optimistic Send failed:", err);
+            return {
+                success: false,
+                error: err.message || "Failed to post message",
+                isPremiumCallback: err.isPremiumCallback,
+                resetTime: err.resetTime,
+                status: err.status
+            };
         }
     };
 
-    const voteMessage = async (id: string, action: 'like' | 'dislike', unlimited: boolean = false) => {
-        // We trigger a local revalidation after the vote
-        const res = await fetch(getApiUrl(`/api/messages/${id}/vote`), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: 'include',
-            body: JSON.stringify({ action, unlimited }),
+    const voteMessage = async (id: string, action: 'like' | 'dislike', userId?: string, unlimited: boolean = false) => {
+        if (!data) return;
+
+        // Calculate the optimistic state
+        const updatedMessages = data.map(msg => {
+            if (msg.id !== id) return msg;
+
+            let newLikedBy = [...(msg.likedBy || [])];
+            let newLikes = msg.likes || 0;
+
+            if (action === 'like' && userId) {
+                const isLiked = newLikedBy.includes(userId);
+                if (isLiked) {
+                    newLikedBy = newLikedBy.filter(uid => uid !== userId);
+                    newLikes = Math.max(0, newLikes - 1);
+                } else {
+                    newLikedBy.push(userId);
+                    newLikes++;
+                }
+            }
+
+            return { ...msg, likedBy: newLikedBy, likes: newLikes };
         });
 
-        if (res.ok) {
-            mutate(); // Revalidate from server
-        } else {
-            // If message not found (404), it might have been deleted/expired. Revalidate to remove it from UI.
-            if (res.status === 404) {
-                mutate();
-            }
+        // Trigger optimistic update
+        const options = {
+            optimisticData: updatedMessages,
+            rollbackOnError: true,
+            populateCache: true,
+            revalidate: true
+        };
+
+        try {
+            await mutate(
+                (async () => {
+                    const res = await fetch(getApiUrl(`/api/messages/${id}/vote`), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: 'include',
+                        body: JSON.stringify({ action, unlimited }),
+                    });
+
+                    if (!res.ok) {
+                        if (res.status === 404) return data.filter(m => m.id !== id);
+                        throw new Error("Failed to vote");
+                    }
+
+                    // Return the optimistic data as the "final" state to prevent flicker
+                    // SWR will revalidate anyway due to revalidate: true
+                    return updatedMessages;
+                })(),
+                options
+            );
+        } catch (err) {
+            console.error("Voting failed:", err);
         }
     };
 

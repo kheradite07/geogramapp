@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { mapMessage } from "@/lib/messages";
 
 export async function POST(
     request: Request,
@@ -89,7 +90,8 @@ export async function POST(
                 dislikes,
                 likedBy: JSON.stringify(likedBy),
                 dislikedBy: JSON.stringify(dislikedBy)
-            }
+            },
+            include: { user: true } // Include user for mapping
         });
 
         // Send notification if a NEW vote was added (and not by the author)
@@ -115,7 +117,7 @@ export async function POST(
             );
         }
 
-        return new Response(JSON.stringify(updatedMessage), { status: 200 });
+        return new Response(JSON.stringify(mapMessage(updatedMessage)), { status: 200 });
     } catch (error) {
         console.error('Vote error:', error);
         return new Response(JSON.stringify({ error: "Server Error" }), { status: 500 });

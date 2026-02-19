@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useUser } from "@/hooks/useUser";
 import { User, Check, AlertCircle, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { useTranslation } from "@/context/LocalizationContext";
 
 export default function OnboardingModal() {
+    const { t } = useTranslation();
     const { user, mutate } = useUser();
     const [fullName, setFullName] = useState("");
     const [username, setUsername] = useState("");
@@ -62,41 +64,41 @@ export default function OnboardingModal() {
                         <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center rounded-full bg-gradient-to-tr from-purple-500 to-cyan-500 shadow-lg shadow-purple-500/30">
                             <User size={40} className="text-white" />
                         </div>
-                        <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome</h2>
-                        <p className="text-white/60 text-sm">Create your profile to join the conversation.</p>
+                        <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('welcome_onboarding')}</h2>
+                        <p className="text-white/60 text-sm">{t('onboarding_desc')}</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2 ml-1">Full Name</label>
+                            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2 ml-1">{t('full_name')}</label>
                             <input
                                 type="text"
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
                                 className="w-full px-5 py-4 bg-black/20 border border-white/10 rounded-2xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:bg-black/30 transition-all font-medium"
-                                placeholder="John Doe"
+                                placeholder={t('fullname_placeholder')}
                                 required
                                 minLength={2}
-                                maxLength={50}
+                                maxLength={16}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2 ml-1">Username</label>
+                            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2 ml-1">{t('username')}</label>
                             <div className="relative">
                                 <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 font-bold">@</span>
                                 <input
                                     type="text"
                                     value={username}
-                                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
                                     className="w-full pl-10 pr-5 py-4 bg-black/20 border border-white/10 rounded-2xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 focus:bg-black/30 transition-all font-medium"
-                                    placeholder="username"
+                                    placeholder={t('username_placeholder')}
                                     required
                                     minLength={3}
-                                    maxLength={20}
+                                    maxLength={16}
                                 />
                             </div>
-                            <p className="text-[10px] text-white/40 mt-1.5 ml-2">Visible to everyone. 3-20 characters.</p>
+                            <p className="text-[10px] text-white/40 mt-1.5 ml-2">{t('visible_to_everyone')}</p>
                         </div>
 
                         {error && (
@@ -118,10 +120,10 @@ export default function OnboardingModal() {
                                 `}
                             >
                                 {isSubmitting ? (
-                                    <span className="animate-pulse">Setting up...</span>
+                                    <span className="animate-pulse">{t('setting_up')}</span>
                                 ) : (
                                     <>
-                                        <span>Complete Setup</span>
+                                        <span>{t('complete_setup')}</span>
                                         <Check size={20} strokeWidth={3} />
                                     </>
                                 )}
@@ -133,7 +135,7 @@ export default function OnboardingModal() {
                                 className="w-full py-3 rounded-xl font-medium text-sm text-white/50 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2"
                             >
                                 <LogOut size={14} />
-                                <span>Sign Out & Cancel</span>
+                                <span>{t('sign_out_cancel')}</span>
                             </button>
                         </div>
                     </form>

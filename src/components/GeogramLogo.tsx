@@ -34,7 +34,7 @@ export default function GeogramLogo({ className = "", size = 48, withText = fals
                 <rect x="5" y="5" width="90" height="90" rx="28" fill="url(#logoGradient)" />
 
                 {/* Location Pin Icon - Centered Vertically with Shadow */}
-                <g transform="translate(0, -3)" filter="url(#dropShadow)">
+                <g transform="translate(0, -5)" filter="url(#dropShadow)">
                     <path
                         d="M50 25C37.5 25 27.5 35 27.5 47.5C27.5 64.5 50 87.5 50 87.5C50 87.5 72.5 64.5 72.5 47.5C72.5 35 62.5 25 50 25ZM50 55C45.9 55 42.5 51.6 42.5 47.5C42.5 43.4 45.9 40 50 40C54.1 40 57.5 43.4 57.5 47.5C57.5 51.6 54.1 55 50 55Z"
                         fill="url(#pinGradient)"

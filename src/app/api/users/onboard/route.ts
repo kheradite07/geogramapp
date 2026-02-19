@@ -12,12 +12,19 @@ export async function POST(request: Request) {
 
         const { username, fullName } = await request.json();
 
-        // Validation
-        if (!username || username.length < 3 || username.length > 20) {
-            return NextResponse.json({ error: "Username must be between 3 and 20 characters." }, { status: 400 });
+        // Validation: 16-character limits
+        if (!username || username.length < 3 || username.length > 16) {
+            return NextResponse.json({ error: "Username must be between 3 and 16 characters." }, { status: 400 });
         }
-        if (!fullName || fullName.length < 2 || fullName.length > 50) {
-            return NextResponse.json({ error: "Full Name must be between 2 and 50 characters." }, { status: 400 });
+
+        // Format: English lowercase, numbers, and dots only
+        const usernameRegex = /^[a-z0-9.]+$/;
+        if (!usernameRegex.test(username)) {
+            return NextResponse.json({ error: "Username can only contain lowercase English letters, numbers, and dots." }, { status: 400 });
+        }
+
+        if (!fullName || fullName.length < 2 || fullName.length > 16) {
+            return NextResponse.json({ error: "Name must be between 2 and 16 characters." }, { status: 400 });
         }
 
         // Check if username is taken

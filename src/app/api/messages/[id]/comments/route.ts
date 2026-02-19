@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { checkAndGrantBadges } from "@/lib/badgeLogic";
 
 // GET /api/messages/[id]/comments - Fetch all comments for a message
 export async function GET(
@@ -128,7 +129,15 @@ export async function POST(
             );
         }
 
-        return NextResponse.json(comment, { status: 201 });
+        // Badge Check
+        const newlyEarned = await checkAndGrantBadges(user.id);
+
+        return NextResponse.json({
+            ...comment,
+            userUpdates: {
+                earnedBadges: newlyEarned
+            }
+        }, { status: 201 });
     } catch (error) {
         console.error("Error creating comment:", error);
         return NextResponse.json(

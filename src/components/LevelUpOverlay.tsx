@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import confetti from "canvas-confetti";
 import { getLevelTitle } from "@/lib/gameLogic";
+import { useTranslation } from "@/context/LocalizationContext";
 
 interface LevelUpOverlayProps {
     level: number;
@@ -10,6 +11,7 @@ interface LevelUpOverlayProps {
 }
 
 export default function LevelUpOverlay({ level, onClose }: LevelUpOverlayProps) {
+    const { t } = useTranslation();
     const [show, setShow] = useState(false);
 
     useEffect(() => {
@@ -84,16 +86,16 @@ export default function LevelUpOverlay({ level, onClose }: LevelUpOverlayProps) 
                     </div>
 
                     <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-yellow-300 drop-shadow-[0_0_25px_rgba(251,191,36,0.5)] animate-text">
-                        LEVEL UP!
+                        {t('level_up')}
                     </h2>
 
                     <div className="mt-6 flex flex-col items-center gap-2">
-                        <span className="text-white/60 text-lg font-bold tracking-widest uppercase">Artık bir</span>
+                        <span className="text-white/60 text-lg font-bold tracking-widest uppercase">{t('now_a')}</span>
                         <div className="px-6 py-4 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-2xl backdrop-blur-md">
                             <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-300 mb-1">
                                 {levelTitle}
                             </div>
-                            <div className="text-sm text-white/40 font-bold">Seviye {level}</div>
+                            <div className="text-sm text-white/40 font-bold">{t('level')} {level}</div>
                         </div>
                     </div>
                 </div>

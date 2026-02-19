@@ -2,11 +2,14 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, LogOut, User as UserIcon, MapPin } from "lucide-react";
+import { ArrowLeft, LogOut, User as UserIcon, MapPin, Crown, Check, Lock } from "lucide-react";
 import useSWR from "swr";
 import { useUser } from "@/hooks/useUser";
 import { Suspense, useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/api";
+import { BADGE_CONFIGS } from "@/lib/badgeConfig";
+import { useTranslation } from "@/context/LocalizationContext";
+import BadgeInfoModal from "@/components/BadgeInfoModal";
 
 const fetcher = (url: string) => fetch(getApiUrl(url), { credentials: 'include' }).then((res) => res.json());
 
@@ -27,9 +30,11 @@ const formatRelativeTime = (timestamp: number) => {
 };
 
 function ProfileContent() {
+    const { t } = useTranslation();
     const { data: session } = useSession();
     const searchParams = useSearchParams();
     const router = useRouter();
+    const [selectedBadgeId, setSelectedBadgeId] = useState<string | null>(null);
     // Get ID from query param (?id=...)
     const userId = searchParams.get('id');
 
@@ -71,14 +76,14 @@ function ProfileContent() {
     }
 
     return (
-        <div className="min-h-screen p-4 flex flex-col pointer-events-none">
+        <div className="min-h-screen p-4 flex flex-col pointer-events-none pb-24">
             <div className="w-full max-w-lg mx-auto mt-10 pointer-events-auto">
                 <button
                     onClick={() => router.back()}
                     className="mb-6 flex items-center px-4 py-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-all backdrop-blur-md border border-white/10"
                 >
                     <ArrowLeft size={20} className="mr-2" />
-                    Back to Map
+                    {t('back_to_map') || 'Back to Map'}
                 </button>
 
                 <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative">
@@ -100,9 +105,19 @@ function ProfileContent() {
                             </div>
                         </div>
 
-                        <h1 className="mt-6 text-3xl font-bold text-white drop-shadow-md text-center">
-                            {displayUser.fullName || displayUser.name || "Anonymous User"}
-                        </h1>
+                        <div className="flex items-center justify-center gap-2 mt-6">
+                            <h1 className="text-3xl font-bold text-white drop-shadow-md text-center">
+                                {displayUser.fullName || displayUser.name || "Anonymous User"}
+                            </h1>
+                            {displayUser.activeBadgeId && BADGE_CONFIGS[displayUser.activeBadgeId] && (
+                                <span
+                                    title={t(BADGE_CONFIGS[displayUser.activeBadgeId].nameKey)}
+                                    className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[displayUser.activeBadgeId].style} text-xl shadow-lg transform rotate-12 ring-1 ring-white/20`}
+                                >
+                                    {BADGE_CONFIGS[displayUser.activeBadgeId].icon}
+                                </span>
+                            )}
+                        </div>
 
                         <p className="text-cyan-400 text-lg font-medium mb-1">
                             @{displayUser.username || (displayUser.name ? displayUser.name.replace(/\s+/g, '').toLowerCase() : "user")}
@@ -113,6 +128,60 @@ function ProfileContent() {
                             <p className="text-gray-300 text-center mt-4 max-w-sm italic">
                                 "{displayUser.bio}"
                             </p>
+                        )}
+
+                        {/* Badge Collection Section */}
+                        {displayUser.badges && displayUser.badges.length > 0 && (
+                            <div className="w-full mt-8 bg-white/5 rounded-2xl p-4 border border-white/5">
+                                <div className="flex items-center gap-2 mb-4 px-1">
+                                    <Crown size={16} className="text-yellow-400" />
+                                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">{t('badges_collection') || 'Badge Collection'}</h3>
+                                </div>
+                                <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                                    {displayUser.badges.map((b: any) => {
+                                        const config = BADGE_CONFIGS[b.badgeId];
+                                        if (!config) return null;
+                                        // On profile page, we usually only see earned badges
+                                        // But if we ever show all, we handle lock icon
+                                        const isEarned = true; // In current profile logic, badges array only has earned ones
+
+                                        return (
+                                            <div key={b.id} className="flex flex-col items-center gap-2">
+                                                <button
+                                                    onClick={() => setSelectedBadgeId(b.badgeId)}
+                                                    className={`relative w-14 h-14 flex items-center justify-center rounded-full border-2 border-white/20 bg-gradient-to-br ${config.style} shadow-[0_4px_15px_rgba(0,0,0,0.3)] transform transition-transform hover:scale-110 active:scale-95 cursor-pointer`}
+                                                    title={t(config.nameKey)}
+                                                >
+                                                    <span className="text-5xl absolute transition-all duration-500 z-10 drop-shadow-2xl">{config.icon}</span>
+                                                </button>
+                                                <div className="relative mt-[-20px] group z-40 w-full flex justify-center items-center pointer-events-none">
+                                                    {/* Arched Ribbon Wings (Back) */}
+                                                    <div
+                                                        className={`absolute left-[calc(50%-36px)] top-3 w-8 h-4 -z-20 brightness-[0.3] bg-gradient-to-br ${config.style} [clip-path:polygon(100%_0,0_50%,100%_100%)] group-hover:left-[calc(50%-42px)] transition-all duration-300 shadow-2xl`}
+                                                    />
+                                                    <div
+                                                        className={`absolute right-[calc(50%-36px)] top-3 w-8 h-4 -z-20 brightness-[0.3] bg-gradient-to-br ${config.style} [clip-path:polygon(0_0,100%_50%,0_100%)] group-hover:right-[calc(50%-42px)] transition-all duration-300 shadow-2xl`}
+                                                    />
+
+                                                    {/* Fold Shadows */}
+                                                    <div className="absolute left-[calc(50%-26px)] top-1 w-3 h-5 -z-10 bg-black/60 skew-y-[30deg]" />
+                                                    <div className="absolute right-[calc(50%-26px)] top-1 w-3 h-5 -z-10 bg-black/60 -skew-y-[30deg]" />
+
+                                                    {/* Arched Ribbon Body (Front) */}
+                                                    <div className={`relative px-4 py-2 bg-gradient-to-br ${config.style} shadow-[0_8px_25px_rgba(0,0,0,0.7)] border-t border-white/50 min-w-[70px] max-w-[90px] flex items-center justify-center overflow-hidden
+                                                        [clip-path:polygon(0_15%,_50%_0%,_100%_15%,_100%_85%,_50%_100%,_0_85%)]
+                                                        before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/30 before:to-transparent before:opacity-50
+                                                        after:absolute after:inset-0 after:bg-gradient-to-r after:from-black/30 after:via-transparent after:to-black/30`}>
+                                                        <span className={`relative z-10 text-[11px] font-black uppercase tracking-tight text-center leading-none transition-all duration-500 drop-shadow-[0_2px_4px_rgba(0,0,0,1)] whitespace-nowrap overflow-hidden text-ellipsis px-1 text-white`}>
+                                                            {t(config.nameKey)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
 
                         {isOwnProfile && session?.user?.email && (
@@ -173,6 +242,33 @@ function ProfileContent() {
                     </div>
                 </div>
             </div>
+
+            <BadgeInfoModal
+                badgeId={selectedBadgeId}
+                isEarned={isOwnProfile ? (!!currentUser?.badges?.find((b: any) => b.badgeId === selectedBadgeId)) : (!!displayUser.badges?.find((b: any) => b.badgeId === selectedBadgeId))}
+                isActive={displayUser.activeBadgeId === selectedBadgeId}
+                onClose={() => setSelectedBadgeId(null)}
+                onActivate={async (id) => {
+                    if (!isOwnProfile) return;
+                    // Handle activation logic here for own profile
+                    try {
+                        const res = await fetch('/api/users/update', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ activeBadgeId: id })
+                        });
+                        if (res.ok) {
+                            if (currentUser) {
+                                currentUser.activeBadgeId = id;
+                            }
+                            setSelectedBadgeId(null);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }}
+            />
         </div>
     );
 }

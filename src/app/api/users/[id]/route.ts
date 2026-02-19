@@ -11,7 +11,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             where: { id: userId },
             include: {
                 friendsRequested: { include: { receiver: true } },
-                friendsReceived: { include: { requester: true } }
+                friendsReceived: { include: { requester: true } },
+                badges: true
             }
         });
 
@@ -28,8 +29,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             fullName: frontendUser.fullName,
             username: frontendUser.username,
             image: frontendUser.image,
-            // Keep friends count or similar if needed, but for now basic profile info is enough
-            // Maybe strict mode: only public info
+            bio: frontendUser.bio,
+            activeBadgeId: frontendUser.activeBadgeId,
+            badges: frontendUser.badges
         });
     } catch (error) {
         console.error("Error fetching user:", error);

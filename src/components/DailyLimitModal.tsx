@@ -2,6 +2,7 @@
 
 import { Clock, Crown, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/context/LocalizationContext";
 
 interface DailyLimitModalProps {
     resetTime: string;
@@ -9,6 +10,7 @@ interface DailyLimitModalProps {
 }
 
 export default function DailyLimitModal({ resetTime, onClose }: DailyLimitModalProps) {
+    const { t } = useTranslation();
     const [show, setShow] = useState(false);
 
     useEffect(() => {
@@ -38,7 +40,7 @@ export default function DailyLimitModal({ resetTime, onClose }: DailyLimitModalP
                 <button
                     onClick={handleClose}
                     className="absolute top-2 right-2 w-6 h-6 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all"
-                    aria-label="Kapat"
+                    aria-label={t('cancel')}
                 >
                     <X size={16} />
                 </button>
@@ -56,18 +58,18 @@ export default function DailyLimitModal({ resetTime, onClose }: DailyLimitModalP
 
                     {/* Title */}
                     <h2 className="text-xl font-black text-white mb-2">
-                        Günlük Limit Doldu! 🛑
+                        {t('daily_limit_reached')}
                     </h2>
 
                     {/* Description */}
                     <p className="text-white/70 text-[11px] mb-3 leading-tight">
-                        Bugünlük gönderi limitinize ulaştınız.
+                        {t('daily_limit_desc')}
                     </p>
 
                     {/* Reset time */}
                     <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 mb-3">
                         <div className="text-red-300 text-[9px] font-bold uppercase tracking-wider mb-0.5">
-                            Yeni Gönderi
+                            {t('new_post')}
                         </div>
                         <div className="text-white text-sm font-bold">
                             {resetTime}
@@ -79,20 +81,20 @@ export default function DailyLimitModal({ resetTime, onClose }: DailyLimitModalP
                         <div className="flex items-center justify-center gap-1.5 mb-1.5">
                             <Crown size={18} className="text-yellow-400" />
                             <h3 className="text-base font-bold text-yellow-300">
-                                Premium'a Geç
+                                {t('go_premium')}
                             </h3>
                         </div>
                         <p className="text-yellow-100/70 text-[10px] mb-2.5 leading-tight">
-                            Sınırsız gönderi ve özel ayrıcalıklarla deneyimini güçlendir!
+                            {t('premium_desc')}
                         </p>
                         <button
                             className="w-full py-2 bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-black font-bold rounded-lg transition-all shadow-lg shadow-yellow-500/25 active:scale-95 text-xs"
                             onClick={() => {
                                 // TODO: Navigate to premium upgrade page
-                                alert('Premium upgrade coming soon!');
+                                alert(t('premium_coming_soon'));
                             }}
                         >
-                            Premium'a Yükselt
+                            {t('upgrade_premium')}
                         </button>
                     </div>
 
@@ -101,7 +103,7 @@ export default function DailyLimitModal({ resetTime, onClose }: DailyLimitModalP
                         onClick={handleClose}
                         className="w-full py-2 bg-white/5 hover:bg-white/10 text-white/80 rounded-lg text-[11px] font-semibold transition-colors"
                     >
-                        Anladım
+                        {t('understood')}
                     </button>
                 </div>
             </div>

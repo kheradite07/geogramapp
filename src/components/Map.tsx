@@ -1,6 +1,6 @@
 "use client";
 
-import Map, { Marker, NavigationControl, GeolocateControl, MapRef } from "react-map-gl/mapbox";
+import MapGL, { Marker, NavigationControl, GeolocateControl, MapRef } from "react-map-gl/mapbox";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLocation } from "@/hooks/useLocation";
@@ -12,10 +12,11 @@ import { useSession } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { useUI } from "@/context/UIContext";
 import { UserPlus, Check, Clock, Search, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, animate, useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
 import MessageDetails from "./MessageDetails";
 import VoteControls from "./VoteControls";
 import MapLayers, { FilterMode } from "./MapLayers";
+import { useTranslation } from "@/context/LocalizationContext";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -38,13 +39,222 @@ const formatRelativeTime = (timestamp: number) => {
     return `${days}d`;
 };
 
-// Custom Blue Dot Icon for User Location (SVG)
-const UserLocationMarker = () => (
-    <div className="relative flex items-center justify-center w-6 h-6">
-        <div className="absolute w-full h-full bg-cyan-400 opacity-30 rounded-full animate-ping"></div>
-        <div className="relative w-3 h-3 bg-cyan-400 border-2 border-white rounded-full shadow-sm"></div>
+const UserAura = () => (
+    <>
+        <div className="absolute inset-0 bg-green-400/50 rounded-full animate-ping pointer-events-none"></div>
+        <div className="absolute inset-0 bg-green-400/20 rounded-full animate-pulse blur-md pointer-events-none"></div>
+        <div className="absolute -inset-2 bg-green-500/10 rounded-full animate-pulse blur-xl pointer-events-none"></div>
+    </>
+);
+
+// Custom User Location Marker Component
+const UserLocationMarker = ({ image, name }: { image?: string | null, name?: string | null }) => (
+    <div className="relative flex items-center justify-center w-10 h-10 cursor-default pointer-events-none">
+        <UserAura />
+
+        {/* Avatar Container */}
+        <div className="relative w-8 h-8 rounded-full border-2 border-white shadow-[0_0_20px_rgba(34,197,94,0.6)] overflow-hidden bg-green-950 flex items-center justify-center">
+            {image ? (
+                <img src={image} alt={name || "You"} className="w-full h-full object-cover" />
+            ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold text-sm">
+                    {name?.charAt(0).toUpperCase() || "U"}
+                </div>
+            )}
+        </div>
     </div>
 );
+
+const FriendMarker = ({ friend, onClick, showAura }: { friend: any, onClick?: () => void, showAura?: boolean }) => (
+    <div className="group relative cursor-pointer" onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+    }}>
+        <div className="relative flex items-center justify-center w-10 h-10">
+            {showAura && <UserAura />}
+
+            <div className={`w-10 h-10 rounded-full border-2 ${showAura ? 'border-white shadow-[0_0_20px_rgba(16,185,129,0.5)]' : 'border-green-500'} shadow-lg overflow-hidden bg-black relative transform transition-transform group-hover:scale-110`}>
+                {friend.image ? (
+                    <img src={friend.image} alt={friend.name} className="w-full h-full object-cover" />
+                ) : (
+                    <div className={`w-full h-full flex items-center justify-center ${showAura ? 'bg-emerald-600' : 'bg-green-600'} text-white font-bold`}>
+                        {friend.name?.charAt(0).toUpperCase() || (showAura ? 'U' : '?')}
+                    </div>
+                )}
+            </div>
+
+            {!showAura && (
+                <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-black ${friend.lastSeen && (Date.now() - new Date(friend.lastSeen).getTime() < 5 * 60 * 1000)
+                    ? 'bg-green-500'
+                    : 'bg-gray-500'
+                    }`}></div>
+            )}
+        </div>
+        {/* Tooltip */}
+        <div className="absolute top-full mt-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-green-500/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center whitespace-nowrap pointer-events-none z-[1000]">
+            <span className="text-[10px] text-white font-medium">{isSelf(friend) ? 'You' : friend.name}</span>
+            {!isSelf(friend) && friend.lastSeen && (
+                <span className="text-[9px] text-gray-300">
+                    {Date.now() - new Date(friend.lastSeen).getTime() < 5 * 60 * 1000
+                        ? 'Online'
+                        : `Seen ${formatRelativeTime(new Date(friend.lastSeen).getTime())} ago`}
+                </span>
+            )}
+        </div>
+    </div>
+);
+
+const isSelf = (point: any) => point.id === 'self' || point.isSelf;
+
+// Orbital Layout Constants
+const ORBITAL_RADIUS = 32; // Distance from center
+const THRESHOLD_ZOOM_DECLUSTER = 18.2; // Zoom level where we show individual markers instead of just avatars
+
+const FriendClusterMarker = ({ count, friends, onClick, stackIndex = 0 }: { count: number, friends: any[], onClick?: () => void, stackIndex?: number }) => {
+    // Each person is an individual marker. The leader (index 0) stays at center.
+    // Others orbit around at a smaller scale.
+    const person = friends[0];
+    const isUser = isSelf(person);
+
+    const isLeader = stackIndex === 0;
+
+    let translateX = 0;
+    let translateY = 0;
+    let scale = 1.0;
+
+    if (!isLeader) {
+        // Calculate orbital position based on index (offset from leader)
+        const followerIndex = stackIndex - 1;
+        const totalFollowers = Math.max(count - 1, 1);
+
+        // Distribute followers evenly around the circle
+        // Start from -90deg (top) for better visual balance
+        const angle = (followerIndex * (360 / totalFollowers) - 90) * (Math.PI / 180);
+
+        translateX = Math.cos(angle) * ORBITAL_RADIUS;
+        translateY = Math.sin(angle) * ORBITAL_RADIUS;
+        scale = 0.8; // Orbital avatars are slightly larger for symmetry
+    }
+
+    return (
+        <div
+            className="group relative cursor-pointer flex items-center justify-center"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+            }}
+            style={{
+                transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
+                zIndex: isLeader ? 100 : 10 - stackIndex,
+            }}
+        >
+            <div className={`relative flex items-center justify-center ${isLeader ? 'w-10 h-10' : 'w-8 h-8'}`}>
+                {isUser && <UserAura />}
+                <div className={`${isLeader ? 'w-10 h-10' : 'w-8 h-8'} rounded-full border-2 ${isUser ? 'border-white shadow-[0_0_20px_rgba(16,185,129,0.5)]' : 'border-green-500'} shadow-lg overflow-hidden bg-black transform transition-transform group-hover:scale-110 ring-4 ring-black/20`}>
+                    {person.image ? (
+                        <img src={person.image} alt={person.name} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className={`w-full h-full flex items-center justify-center ${isUser ? 'bg-emerald-600' : 'bg-green-600'} text-white font-bold text-xs`}>
+                            {person.name?.charAt(0).toUpperCase() || (isUser ? 'U' : '?')}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// Smoothly Animated Marker Wrapper
+const AnimatedMarker = ({ latitude, longitude, children, zIndex = 0, layoutId, ...props }: any) => {
+    // Motion values for momentum preservation
+    const latMV = useMotionValue(latitude);
+    const lngMV = useMotionValue(longitude);
+
+    // Spring configuration for snappy, organic movement
+    const springConfig = { stiffness: 400, damping: 40, mass: 1 };
+    const latSpring = useSpring(latMV, springConfig);
+    const lngSpring = useSpring(lngMV, springConfig);
+
+    // Current rendered coordinates (synced with spring)
+    const [coords, setCoords] = useState({ lat: latitude, lng: longitude });
+
+    // Update target when props change - useSpring handles the transition smoothly
+    useEffect(() => {
+        latMV.set(latitude);
+        lngMV.set(longitude);
+    }, [latitude, longitude]);
+
+    // Sync spring values back to state for react-map-gl Marker
+    useMotionValueEvent(latSpring, "change", (latest) => {
+        setCoords(prev => ({ ...prev, lat: latest }));
+    });
+    useMotionValueEvent(lngSpring, "change", (latest) => {
+        setCoords(prev => ({ ...prev, lng: latest }));
+    });
+
+    return (
+        <Marker {...props} latitude={coords.lat} longitude={coords.lng} style={{ transition: 'none', zIndex }}>
+            <motion.div
+                layoutId={layoutId}
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25,
+                    mass: 0.5
+                }}
+            >
+                {children}
+            </motion.div>
+        </Marker>
+    );
+};
+
+
+// Helper: Collision Avoidance (Reverse Magnet)
+// Pushes a coordinate away from bubble centers if it's too close
+const calculateMagnetOffset = (
+    lat: number,
+    lng: number,
+    bubbleMap: Map<string, Message>, // Optimized O(1) lookup
+    zoom: number
+) => {
+    // VISUAL RADIUS for a bubble in degrees (approximate)
+    const zoomFactor = Math.pow(2, 13 - zoom);
+    const bubbleMarginLat = 0.006 * zoomFactor; // ~600m visual "force field"
+    const bubbleMarginLng = bubbleMarginLat / Math.cos(lat * Math.PI / 180);
+
+    let finalLat = lat;
+    let finalLng = lng;
+
+    bubbleMap.forEach(bubble => {
+        // Shift repulsion center upwards because bubble is anchored at bottom
+        const centerLat = bubble.lat + (bubbleMarginLat * 0.7);
+
+        const dLat = lat - centerLat;
+        const dLng = lng - bubble.lng;
+
+        // Normalize by margins
+        const normLat = dLat / bubbleMarginLat;
+        const normLng = dLng / bubbleMarginLng;
+        const distSq = normLat * normLat + normLng * normLng;
+
+        // If inside the bubble's circular force field
+        if (distSq < 1 && distSq > 0) {
+            const dist = Math.sqrt(distSq);
+            // Push it exactly to the nearest point on the circumference
+            const pushFactor = 1.1 / dist;
+
+            finalLat = centerLat + (dLat * pushFactor);
+            finalLng = bubble.lng + (dLng * pushFactor);
+        }
+    });
+
+    return { lat: finalLat, lng: finalLng };
+};
 
 const FOG_CONFIG = {
     range: [0.5, 10] as [number, number],
@@ -62,6 +272,12 @@ const FOG_CONFIG = {
 
 // Message Marker Component
 // Premium Message Bubble Component
+// --- Configuration ---
+const FOCUS_CONFIG = {
+    verticalBand: 0.45,   // Total height percentage (0.35 = 35% of screen)
+    horizontalBand: 0.45, // Total width percentage (0.20 = 20% of screen)
+};
+
 const MessageMarker = ({
     message,
     onClick,
@@ -70,7 +286,9 @@ const MessageMarker = ({
     unlimitedVotes = false,
     isSelected = false,
     isNearCenter = true,
-    zoom = 12
+    showActions = false, // Controlled by parent based on screen center proximity
+    zoom = 12,
+    isExiting = false
 }: {
     message: Message & { hiddenCount?: number };
     onClick?: (e?: React.MouseEvent) => void;
@@ -79,8 +297,16 @@ const MessageMarker = ({
     unlimitedVotes?: boolean;
     isSelected?: boolean;
     isNearCenter?: boolean;
+    showActions?: boolean;
     zoom?: number;
+    isExiting?: boolean;
 }) => {
+    // Animation state to prevent re-triggering classes on every render
+    const [isVisible, setIsVisible] = useState(false);
+    useEffect(() => {
+        setIsVisible(true);
+    }, []);
+
     // Determine display mode:
     // 1. Rely solely on clustering logic (passed as isNearCenter)
     const shouldShowAsBubble = isNearCenter;
@@ -98,9 +324,9 @@ const MessageMarker = ({
                 }}
             >
                 <div className="relative">
-                    {/* Small dot */}
+                    {/* Larger, more prominent dot */}
                     <div
-                        className="w-2 h-2 rounded-full border border-white shadow-md transition-all hover:scale-150"
+                        className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-all hover:scale-150"
                         style={{
                             background: message.visibility === 'friends'
                                 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
@@ -145,6 +371,11 @@ const MessageMarker = ({
                 : 'rgba(157, 78, 221, 0.95)',
         '--outline': isSelected ? '3px solid rgba(255, 255, 255, 0.9)' : 'none',
         zIndex: (isFriends ? 1000 : isPremium ? 500 : 0) + (message.likes || 0) + 10,
+        // Combined Scale/Opacity logic
+        opacity: (isVisible && !isExiting) ? 1 : 0,
+        transform: (isVisible && !isExiting) ? 'scale(1)' : 'scale(0)',
+        transformOrigin: 'bottom center',
+        transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease'
     } as React.CSSProperties;
 
     return (
@@ -158,7 +389,7 @@ const MessageMarker = ({
         >
             <div className="relative">
                 {/* Chat bubble */}
-                <div className="message-bubble bubble-popup">
+                <div className="message-bubble">
                     {/* Clustering Badge - Top Left - Larger */}
                     {(message.hiddenCount ?? 0) > 0 && (
                         <div className="absolute -top-3 -left-3 bg-gradient-to-br from-purple-400 to-purple-600 text-white text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full border-2 border-purple-900 shadow-lg z-10">
@@ -194,7 +425,7 @@ const MessageMarker = ({
                     )}
 
                     {/* Content */}
-                    <div className="flex flex-col relative z-10 min-w-0 flex-1 message-content">
+                    <div className="flex flex-col relative z-10 min-w-0 flex-1 message-content pr-5">
                         <span className="message-text">
                             {message.text}
                         </span>
@@ -207,24 +438,75 @@ const MessageMarker = ({
                     </div>
                 </div>
 
-                {/* Side Action Bar - Vote Controls (Outside Bubble) */}
-                {zoom >= 14 && (
-                    <div className="absolute left-full top-0 bottom-0 ml-2 flex items-center z-[-1]">
-                        <div className="reveal-from-behind">
-                            <VoteControls
-                                message={message}
-                                onVote={onVote}
-                                currentUser={currentUser}
-                                unlimitedVotes={unlimitedVotes}
-                                orientation="vertical"
-                            />
-                        </div>
+                {/* PREMIUM DIRECT LIKE BUTTON - Bottom Right Corner */}
+                {showActions && !isExiting && (
+                    <div className="absolute -bottom-1.5 -right-1.5 z-[100] flex items-center">
+                        <motion.button
+                            initial={false}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onVote?.(message.id, 'like', unlimitedVotes);
+                            }}
+                            className={`relative flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full border border-white/40 shadow-[0_4px_12px_rgba(0,0,0,0.3)] backdrop-blur-xl transition-colors duration-500 gap-1 overflow-hidden group ${message.likedBy?.includes(currentUser?.id)
+                                ? 'bg-gradient-to-br from-pink-500 to-rose-600 border-white/60 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                                : 'bg-black/60 hover:bg-black/80'
+                                }`}
+                        >
+                            {/* Splash Ripple Effect */}
+                            {message.likedBy?.includes(currentUser?.id) && (
+                                <motion.div
+                                    initial={{ scale: 0, opacity: 0.5 }}
+                                    animate={{ scale: 3, opacity: 0 }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                    className="absolute inset-0 bg-white rounded-full pointer-events-none"
+                                />
+                            )}
+
+                            {/* Heart Icon with Heartbeat */}
+                            <motion.div
+                                animate={message.likedBy?.includes(currentUser?.id) ? {
+                                    scale: [1, 1.2, 1],
+                                } : { scale: 1 }}
+                                transition={{
+                                    duration: 0.8,
+                                    repeat: Infinity,
+                                    repeatDelay: 1
+                                }}
+                            >
+                                <svg
+                                    className={`w-3 h-3 transition-colors duration-300 ${message.likedBy?.includes(currentUser?.id) ? 'text-white' : 'text-white/70'}`}
+                                    fill={message.likedBy?.includes(currentUser?.id) ? "white" : "none"}
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={message.likedBy?.includes(currentUser?.id) ? 0 : 2}
+                                >
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                </svg>
+                            </motion.div>
+
+                            {/* Animated Like Count */}
+                            <AnimatePresence mode="wait">
+                                {(message.likes || 0) > 0 && (
+                                    <motion.span
+                                        key={message.likes}
+                                        initial={{ y: 5, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: -5, opacity: 0 }}
+                                        className="text-[9px] font-black text-white pr-0.5 tracking-tight"
+                                    >
+                                        {message.likes}
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </motion.button>
                     </div>
                 )}
             </div>
 
             {/* Tail/pointer */}
-            <div className="bubble-tail bubble-popup" />
+            <div className="bubble-tail" />
 
             <style jsx>{`
                 .message-container {
@@ -255,25 +537,6 @@ const MessageMarker = ({
                     z-index: 10; /* Ensure bubble is on top of sidebar */
                 }
 
-                .reveal-from-behind {
-                    animation: revealFromBehind 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-                    opacity: 0;
-                }
-
-
-
-
-                @keyframes revealFromBehind {
-                    0% {
-                        opacity: 0;
-                        transform: translateX(-100%); /* Start inside/behind bubble center */
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: translateX(0); /* End at natural position */
-                    }
-                }
-
                 .message-bubble:hover {
                     transform: translateY(-4px) scale(1.05);
                     box-shadow: var(--bubble-shadow-hover);
@@ -299,27 +562,6 @@ const MessageMarker = ({
                     border-top: 10px solid var(--tail-color);
                     margin-top: -1px;
                     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-                }
-
-                .bubble-popup {
-                    opacity: 0;
-                    transform: scale(0);
-                    transform-origin: bottom center;
-                    animation: popUpBubble 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-                }
-
-                @keyframes popUpBubble {
-                    0% {
-                        opacity: 0;
-                        transform: scale(0);
-                    }
-                    50% {
-                        opacity: 1;
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
                 }
 
                 .message-text {
@@ -374,6 +616,7 @@ const MessageMarker = ({
 };
 
 export default function MapComponent() {
+    const { t } = useTranslation();
     const { location, error: locationError } = useLocation();
     const { messages, voteMessage } = useMessages();
     const mapRef = useRef<MapRef>(null);
@@ -402,6 +645,10 @@ export default function MapComponent() {
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
     const [isLayersOpen, setIsLayersOpen] = useState(false);
+
+    // Track exiting bubbles for closing animation
+    const [exitingBubbles, setExitingBubbles] = useState<Record<string, Message>>({});
+    const previousBubblesSet = useRef<Set<string>>(new Set());
 
     // Helper to check friend status
     const getFriendStatus = (targetUserId: string) => {
@@ -635,10 +882,96 @@ export default function MapComponent() {
         return bubbleSet;
     }, [filteredMessages, viewState.zoom, viewState.latitude, clusterRadius]);
 
+    // O(1) Lookup Map for Magnet Logic
+    const bubbleMap = useMemo(() => {
+        const map = new Map<string, Message>();
+        filteredMessages.forEach(msg => {
+            if (postsToShowAsBubbles.has(msg.id)) {
+                map.set(msg.id, msg);
+            }
+        });
+        return map;
+    }, [filteredMessages, postsToShowAsBubbles]);
+
+    // Unified list of bubbles to render (Active + Exiting)
+    const bubblesToRender = useMemo(() => {
+        const currentBubbleIds = postsToShowAsBubbles;
+
+        // Calculate final list including both current and currently-exiting
+        const active = filteredMessages
+            .filter(msg => currentBubbleIds.has(msg.id))
+            .map(msg => ({ msg, isExiting: false }));
+
+        const exiting = Object.values(exitingBubbles)
+            .filter(msg => !currentBubbleIds.has(msg.id))
+            .map(msg => ({ msg, isExiting: true }));
+
+        return [...active, ...exiting];
+    }, [filteredMessages, postsToShowAsBubbles, exitingBubbles]);
+
+    // Detect exiting bubbles and maintain state (Safely in useEffect)
+    useEffect(() => {
+        const currentBubbleIds = postsToShowAsBubbles;
+        const prevIds = previousBubblesSet.current;
+
+        const newlyExiting: Record<string, Message> = {};
+        let hasNewExiting = false;
+
+        prevIds.forEach(id => {
+            if (!currentBubbleIds.has(id) && !exitingBubbles[id]) {
+                const msg = filteredMessages.find(m => m.id === id) ||
+                    // Fallback if not found in filteredMessages (might have been removed from there too)
+                    (messages as Message[]).find(m => m.id === id);
+
+                if (msg) {
+                    // SMART CHECK: Is this message being replaced by an identical one with a different ID?
+                    // (e.g. optimistic temp-ID -> real DB ID)
+                    const isBeingReplaced = Array.from(postsToShowAsBubbles).some(newId => {
+                        const newMsg = (messages as Message[]).find(m => m.id === newId);
+                        if (!newMsg) return false;
+
+                        const nLat = newMsg.lat !== undefined ? newMsg.lat : newMsg.latitude;
+                        const nLng = newMsg.lng !== undefined ? newMsg.lng : newMsg.longitude;
+                        const mLat = msg.lat !== undefined ? msg.lat : msg.latitude;
+                        const mLng = msg.lng !== undefined ? msg.lng : msg.longitude;
+
+                        // Match by location (fixed to 6 decimals) - identical to bubbleLayoutId logic
+                        return nLat?.toFixed(6) === mLat?.toFixed(6) &&
+                            nLng?.toFixed(6) === mLng?.toFixed(6);
+                    });
+
+                    if (!isBeingReplaced) {
+                        newlyExiting[id] = msg;
+                        hasNewExiting = true;
+                    }
+                }
+            }
+        });
+
+        if (hasNewExiting) {
+            setExitingBubbles(prev => ({ ...prev, ...newlyExiting }));
+
+            // Clean up after animation duration
+            setTimeout(() => {
+                setExitingBubbles(prev => {
+                    const next = { ...prev };
+                    Object.keys(newlyExiting).forEach(id => delete next[id]);
+                    return next;
+                });
+            }, 600); // Matches animation duration
+        }
+
+        // Update ref for next comparison
+        previousBubblesSet.current = new Set(currentBubbleIds);
+    }, [postsToShowAsBubbles, filteredMessages, messages]);
+
+    // Remove the old useEffect-based exiting logic
+
     // Identify Dots (Messages that are NOT Bubbles)
     const visibleDots = useMemo(() => {
         return filteredMessages.filter(msg => !postsToShowAsBubbles.has(msg.id));
     }, [filteredMessages, postsToShowAsBubbles]);
+
 
     // Secondary Clustering: Cluster the Dots
     // "Phase 2" clustering - grouping the Lowlights
@@ -687,11 +1020,21 @@ export default function MapComponent() {
             }
 
             if (cluster.count > 1) {
+                // APPLY MAGNET OFFSET TO CLUSTER
+                const offset = calculateMagnetOffset(
+                    cluster.lat,
+                    cluster.lng,
+                    bubbleMap,
+                    viewState.zoom
+                );
+                cluster.lat = offset.lat;
+                cluster.lng = offset.lng;
+
                 clusters.push(cluster);
             }
         }
         return clusters;
-    }, [visibleDots, viewState.zoom, viewState.latitude, clusterRadius]);
+    }, [visibleDots, viewState.zoom, viewState.latitude, clusterRadius, bubbleMap]);
 
     // Remaining Single Dots (Not in any dot cluster)
     // We can just filter them or return them from the loop above.
@@ -703,26 +1046,106 @@ export default function MapComponent() {
     }, [dotClusters]);
 
 
+    // Tertiary Clustering: Flocking System (Each person is unique, but targets cluster center)
+    const flockPoints = useMemo(() => {
+        const pointsMapping: Record<string, { lat: number, lng: number, clusterId: string, friendsInCluster: any[], stackIndex: number }> = {};
+        const processed = new Set<string>();
+
+        const baseRadius = clusterRadius * 1.5;
+        const zoomFactor = Math.pow(2, 13 - viewState.zoom);
+        const clusterRadiusLat = baseRadius * zoomFactor;
+        const clusterRadiusLng = clusterRadiusLat / Math.cos(viewState.latitude * Math.PI / 180);
+
+        const allPeople = [];
+        if (location) {
+            allPeople.push({ id: 'self', lastLat: location.lat, lastLng: location.lng, name: session?.user?.name || 'You', image: session?.user?.image, isSelf: true });
+        }
+        if (currentUserData?.friends) {
+            allPeople.push(...currentUserData.friends.filter(f => f.lastLat && f.lastLng));
+        }
+
+        for (const person of allPeople) {
+            if (processed.has(person.id)) continue;
+
+            const cluster = [person];
+            processed.add(person.id);
+
+            for (const other of allPeople) {
+                if (other.id === person.id || processed.has(other.id)) continue;
+
+                const latDiff = Math.abs(other.lastLat! - person.lastLat!);
+                const lngDiff = Math.abs(other.lastLng! - person.lastLng!);
+
+                if (latDiff < clusterRadiusLat && lngDiff < clusterRadiusLng) {
+                    cluster.push(other);
+                    processed.add(other.id);
+                }
+            }
+
+            // If we are in a cluster, we prioritize 'self' as the leader for the visual stack
+            if (cluster.some(p => p.id === 'self')) {
+                const selfIdx = cluster.findIndex(p => p.id === 'self');
+                const self = cluster.splice(selfIdx, 1)[0];
+                cluster.unshift(self);
+            }
+
+            const flockLat = cluster.reduce((sum, p) => sum + p.lastLat!, 0) / cluster.length;
+            const flockLng = cluster.reduce((sum, p) => sum + p.lastLng!, 0) / cluster.length;
+
+            cluster.forEach((p, index) => {
+                pointsMapping[p.id] = {
+                    lat: cluster.length > 1 ? flockLat : p.lastLat!,
+                    lng: cluster.length > 1 ? flockLng : p.lastLng!,
+                    clusterId: person.id,
+                    friendsInCluster: cluster,
+                    stackIndex: cluster.length > 1 ? index : -1
+                };
+            });
+        }
+        return pointsMapping;
+    }, [currentUserData?.friends, location, session?.user, viewState.zoom, viewState.latitude, clusterRadius]);
+
+    // Convenient list for iterating
+    const peopleToRender = useMemo(() => {
+        const list = [];
+        if (location) list.push({ id: 'self', isSelf: true, lastLat: location.lat, lastLng: location.lng, name: session?.user?.name, image: session?.user?.image });
+        if (currentUserData?.friends) {
+            list.push(...currentUserData.friends.filter(f => f.lastLat && f.lastLng).map(f => ({ ...f, isSelf: false })));
+        }
+        return list;
+    }, [location, currentUserData?.friends, session?.user]);
+
     // Calculate which messages are near screen center for vote button visibility
+    // FIXED: Use percentage-based thresholds relative to the actual viewport bounds
+    // This ensures consistency across all zoom levels and screen sizes
     const markersNearCenter = useMemo(() => {
+        if (!viewportBounds) return new Set<string>();
+
         const centerLat = viewState.latitude;
         const centerLng = viewState.longitude;
-        const threshold = 0.02 / Math.pow(2, viewState.zoom - 12); // Adjust threshold based on zoom
+
+        // Calculate actual viewport height and width in degrees
+        const viewportLatSpan = Math.abs(viewportBounds.getNorth() - viewportBounds.getSouth());
+        const viewportLngSpan = Math.abs(viewportBounds.getEast() - viewportBounds.getWest());
+
+        // Focus area: Uses centralized percentage config
+        const latThreshold = viewportLatSpan * (FOCUS_CONFIG.verticalBand / 2);
+        const lngThreshold = viewportLngSpan * (FOCUS_CONFIG.horizontalBand / 2);
 
         return new Set(
             filteredMessages
                 .filter(msg => {
                     const latDiff = Math.abs(msg.lat - centerLat);
                     const lngDiff = Math.abs(msg.lng - centerLng);
-                    return latDiff < threshold && lngDiff < threshold;
+                    return latDiff < latThreshold && lngDiff < lngThreshold;
                 })
                 .map(msg => msg.id)
         );
-    }, [filteredMessages, viewState.latitude, viewState.longitude, viewState.zoom]);
+    }, [filteredMessages, viewState.latitude, viewState.longitude, viewportBounds]);
 
     // Handle voting
     const handleVote = async (id: string, action: 'like' | 'dislike', unlimited: boolean) => {
-        await voteMessage(id, action, unlimited);
+        await voteMessage(id, action, currentUserData?.id, unlimited);
     };
 
     // Fly to marker location on click and select message
@@ -749,6 +1172,17 @@ export default function MapComponent() {
             }
         }
     };
+
+    // CRITICAL FIX: Reset map padding when message details are closed
+    // Without this, the map keeps the huge top-padding, making bubbles disappear at the top of the screen
+    useEffect(() => {
+        if (!selectedMessage && mapRef.current) {
+            mapRef.current.easeTo({
+                padding: { top: 0, bottom: 0, left: 0, right: 0 },
+                duration: 400
+            });
+        }
+    }, [selectedMessage]);
 
     // Fetch location name when a message is selected
     useEffect(() => {
@@ -988,7 +1422,7 @@ export default function MapComponent() {
                                         type="text" // 'search' type might show 'x' on some browsers, keeping text for custom style
                                         enterKeyHint="search"
                                         className="block w-full pl-9 pr-9 py-3 bg-[#1a0033]/90 backdrop-blur-xl border border-purple-500/50 rounded-full text-base text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-2xl shadow-purple-900/50"
-                                        placeholder="Search..."
+                                        placeholder={t('search') + "..."}
                                         value={searchQuery}
                                         onChange={(e) => handleSearch(e.target.value)}
                                     // onKeyDown handled by form onSubmit
@@ -1028,13 +1462,18 @@ export default function MapComponent() {
                 )}
             </div>
 
-            <Map
+            <MapGL
                 ref={mapRef}
                 {...viewState}
                 // light prop removed to fix deprecation warning
                 onMove={(evt) => {
                     const previousZoom = viewState.zoom;
                     setViewState(evt.viewState);
+
+                    // Update viewport bounds in real-time for clustering/magnet logic
+                    if (evt.target) {
+                        setViewportBounds(evt.target.getBounds());
+                    }
 
                     // Close details on any zoom change (slow or fast) - ONLY IF USER INITIATED
                     // We check evt.originalEvent and specifically allow only direct interactions
@@ -1060,7 +1499,7 @@ export default function MapComponent() {
                     }
 
                     // Close friend popup only on user-initiated movement, not programmatic flyTo
-                    if (selectedFriend && !isProgrammaticMove.current) {
+                    if (isUserInteraction && !isProgrammaticMove.current && selectedFriend) {
                         setSelectedFriend(null);
                     }
                 }}
@@ -1069,6 +1508,10 @@ export default function MapComponent() {
                     const originalEvent = (evt as any).originalEvent;
                     const isUserInteraction = originalEvent &&
                         ['mousedown', 'mouseup', 'mousemove', 'touchstart', 'touchend', 'touchmove', 'wheel', 'keydown'].includes(originalEvent.type);
+
+                    if (isUserInteraction && !isProgrammaticMove.current && selectedFriend) {
+                        setSelectedFriend(null);
+                    }
 
                     if (isUserInteraction && !isProgrammaticMove.current && selectedMessage) {
                         setSelectedMessage(null);
@@ -1138,237 +1581,358 @@ export default function MapComponent() {
                     }
                 }}
             >
-                {/* User Location */}
-                {location && (
-                    <Marker latitude={location.lat} longitude={location.lng} anchor="center">
-                        <UserLocationMarker />
-                    </Marker>
-                )}
+                {/* Unified Location Rendering (User + Friends + Clusters) */}
+                {/* Unified Flocking Rendering (User + Friends + Clusters) */}
+                {(filterMode === 'all' || filterMode === 'friends-locations') && peopleToRender.map((person) => {
+                    const flockInfo = flockPoints[person.id];
+                    if (!flockInfo) return null;
 
-                {/* Friend Markers - Only show if mode is ALL or FRIEND LOCATIONS */}
-                {(filterMode === 'all' || filterMode === 'friends-locations') && currentUserData?.friends?.map((friend) => (
-                    friend.lastLat && friend.lastLng ? (
-                        <Marker
-                            key={`friend-${friend.id}`}
-                            longitude={friend.lastLng}
-                            latitude={friend.lastLat}
-                            anchor="bottom"
-                            onClick={(e) => {
-                                e.originalEvent.stopPropagation();
-                                // Focus on friend location and show popup
-                                if (friend.lastLat && friend.lastLng) {
-                                    setSelectedFriend(friend);
-                                    isProgrammaticMove.current = true;
-                                    mapRef.current?.flyTo({
-                                        center: [friend.lastLng, friend.lastLat],
-                                        zoom: 15,
-                                        duration: 1000
-                                    });
-                                    // Reset flag after animation completes
-                                    setTimeout(() => {
-                                        isProgrammaticMove.current = false;
-                                    }, 1000);
-                                }
-                            }}
+                    const isHighZoom = viewState.zoom >= THRESHOLD_ZOOM_DECLUSTER;
+
+                    // Dynamic Radius: Beyond threshold, markers push further away as you zoom closer
+                    const dynamicRadius = isHighZoom
+                        ? ORBITAL_RADIUS + (viewState.zoom - THRESHOLD_ZOOM_DECLUSTER) * 25
+                        : ORBITAL_RADIUS;
+
+                    return (
+                        <AnimatedMarker
+                            key={`person-${person.id}`}
+                            longitude={flockInfo.lng}
+                            latitude={flockInfo.lat}
+                            anchor={flockInfo.stackIndex !== -1 ? "center" : "bottom"}
+                            zIndex={flockInfo.stackIndex !== -1 ? 1000 - flockInfo.stackIndex : 800}
                         >
-                            <div className="group relative cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                                <div className="relative">
-                                    <div className="w-10 h-10 rounded-full border-2 border-green-500 shadow-lg overflow-hidden bg-black relative transform transition-transform group-hover:scale-110">
-                                        {friend.image ? (
-                                            <img src={friend.image} alt={friend.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-green-600 text-white font-bold">
-                                                {friend.name.charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
+                            {flockInfo.stackIndex !== -1 ? (
+                                isHighZoom ? (
+                                    // High zoom: Show individual markers with expanded orbital offset
+                                    <div style={{
+                                        transform: (() => {
+                                            const isLeader = flockInfo.stackIndex === 0;
+                                            if (isLeader) return 'scale(1.0)';
+                                            const followerIndex = flockInfo.stackIndex - 1;
+                                            const totalFollowers = Math.max(flockInfo.friendsInCluster.length - 1, 1);
+                                            const angle = (followerIndex * (360 / totalFollowers) - 90) * (Math.PI / 180);
+                                            const tx = Math.cos(angle) * dynamicRadius;
+                                            const ty = Math.sin(angle) * dynamicRadius;
+                                            return `translate(${tx}px, ${ty}px) scale(0.85)`;
+                                        })(),
+                                        zIndex: flockInfo.stackIndex === 0 ? 100 : 10 - flockInfo.stackIndex
+                                    }}>
+                                        <FriendMarker
+                                            friend={person}
+                                            showAura={isSelf(person)}
+                                            onClick={() => {
+                                                if (person.lastLat && person.lastLng) {
+                                                    setSelectedFriend(person);
+
+                                                    // Center with offset even at high zoom
+                                                    const currentZoom = viewState.zoom;
+                                                    const latOffset = 0.0035 * Math.pow(2, 13 - currentZoom);
+
+                                                    isProgrammaticMove.current = true;
+                                                    mapRef.current?.flyTo({
+                                                        center: [person.lastLng, person.lastLat + latOffset],
+                                                        zoom: currentZoom,
+                                                        duration: 800
+                                                    });
+                                                    setTimeout(() => {
+                                                        isProgrammaticMove.current = false;
+                                                    }, 800);
+                                                }
+                                            }}
+                                        />
                                     </div>
-                                    {/* Online Status Indicator */}
-                                    <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-black ${friend.lastSeen && (Date.now() - new Date(friend.lastSeen).getTime() < 5 * 60 * 1000)
-                                        ? 'bg-green-500'
-                                        : 'bg-gray-500'
-                                        }`}></div>
-                                </div>
-                                {/* Tooltip - Absolutely positioned to not affect anchor */}
-                                <div className="absolute top-full mt-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-green-500/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center whitespace-nowrap pointer-events-none">
-                                    <span className="text-[10px] text-white font-medium">{friend.name}</span>
-                                    {friend.lastSeen && (
-                                        <span className="text-[9px] text-gray-300">
-                                            {Date.now() - new Date(friend.lastSeen).getTime() < 5 * 60 * 1000
-                                                ? 'Online'
-                                                : `Seen ${formatRelativeTime(new Date(friend.lastSeen).getTime())} ago`}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </Marker>
-                    ) : null
-                ))}
+                                ) : (
+                                    // Normal zoom: Show simple avatar clusters
+                                    <FriendClusterMarker
+                                        count={flockInfo.friendsInCluster.length}
+                                        friends={[person]}
+                                        stackIndex={flockInfo.stackIndex}
+                                        onClick={() => {
+                                            if (mapRef.current) {
+                                                isProgrammaticMove.current = true;
+                                                mapRef.current.flyTo({
+                                                    center: [flockInfo.lng, flockInfo.lat],
+                                                    zoom: Math.max(viewState.zoom + 2, THRESHOLD_ZOOM_DECLUSTER),
+                                                    duration: 1000
+                                                });
+                                                setTimeout(() => {
+                                                    isProgrammaticMove.current = false;
+                                                }, 1000);
+                                            }
+                                        }}
+                                    />
+                                )
+                            ) : (
+                                <FriendMarker
+                                    friend={person}
+                                    showAura={isSelf(person)}
+                                    onClick={() => {
+                                        if (person.lastLat && person.lastLng) {
+                                            setSelectedFriend(person);
+                                            isProgrammaticMove.current = true;
+
+                                            // Dynamic latitude offset based on zoom for perfect centering
+                                            const zoom = 15;
+                                            const latOffset = 0.0035 * Math.pow(2, 13 - zoom);
+
+                                            mapRef.current?.flyTo({
+                                                center: [person.lastLng, person.lastLat + latOffset],
+                                                zoom: zoom,
+                                                duration: 1000
+                                            });
+                                            setTimeout(() => {
+                                                isProgrammaticMove.current = false;
+                                            }, 1000);
+                                        }
+                                    }}
+                                />
+                            )}
+                        </AnimatedMarker>
+                    );
+                })}
 
                 {/* Friend Popup */}
-                {selectedFriend && selectedFriend.lastLat && selectedFriend.lastLng && (
-                    <Marker
-                        latitude={selectedFriend.lastLat}
-                        longitude={selectedFriend.lastLng}
-                        anchor="bottom"
-                    >
-                        <div
-                            className="animate-in zoom-in-95 duration-300 pointer-events-auto"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="bg-gradient-to-br from-emerald-900/95 to-black/95 backdrop-blur-xl border-2 border-emerald-500/50 rounded-2xl shadow-2xl p-4 min-w-[200px]">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="relative">
-                                        <div className="w-16 h-16 rounded-full border-2 border-emerald-400 shadow-lg overflow-hidden bg-black">
-                                            {selectedFriend.image ? (
-                                                <img src={selectedFriend.image} alt={selectedFriend.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full rounded-full bg-indigo-600 flex items-center justify-center border-2 border-black font-bold text-xl">
-                                                    {selectedFriend.name.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-black ${selectedFriend.lastSeen && (Date.now() - new Date(selectedFriend.lastSeen).getTime() < 5 * 60 * 1000)
-                                            ? 'bg-green-500'
-                                            : 'bg-gray-500'
-                                            }`}></div>
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="text-white font-bold text-sm">{selectedFriend.name}</h3>
-                                        <p className="text-emerald-300 text-xs">@{selectedFriend.username || selectedFriend.name.toLowerCase()}</p>
-                                    </div>
-                                </div>
-                                {selectedFriend.lastSeen && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-300 bg-black/40 rounded-lg px-3 py-2">
-                                        <Clock size={12} className="text-emerald-400" />
-                                        <span>
-                                            {Date.now() - new Date(selectedFriend.lastSeen).getTime() < 5 * 60 * 1000
-                                                ? 'Online now'
-                                                : `Last seen ${formatRelativeTime(new Date(selectedFriend.lastSeen).getTime())} ago`}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </Marker>
-                )}
-
-                {/* 1. BUBBLES: Posts to show as full bubbles */}
                 <AnimatePresence>
-                    {filteredMessages.filter(msg => postsToShowAsBubbles.has(msg.id)).map((msg, index) => (
+                    {selectedFriend && selectedFriend.lastLat && selectedFriend.lastLng && (
                         <Marker
-                            key={`bubble-${msg.id}`}
-                            latitude={msg.lat}
-                            longitude={msg.lng}
+                            latitude={selectedFriend.lastLat}
+                            longitude={selectedFriend.lastLng}
                             anchor="bottom"
+                            style={{ zIndex: 10000 }} // Ensure it's always on top of other markers
                         >
-                            {/* Only show marker if it's NOT the selected one (expanding) */}
-                            {selectedMessage?.id !== msg.id && (
-                                <motion.div
-                                    layoutId={`message-container-${msg.id}`}
-                                    className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
-                                    style={{
-                                        animationDelay: `${150 + index * 30}ms`,
-                                        zIndex: 10 // Ensure lower z-index than expanded details
-                                    }}
-                                >
-                                    <MessageMarker
-                                        message={msg} // No hiddenCount on bubbles anymore
-                                        onVote={handleVote}
-                                        onClick={() => handleMarkerClick(msg)}
-                                        currentUser={currentUserData}
-                                        unlimitedVotes={unlimitedVotes}
-                                        isSelected={selectedMessage?.id === msg.id}
-                                        isNearCenter={true} // Bubbles are always "Near Center" style (expanded)
-                                        zoom={viewState.zoom}
-                                    />
-                                </motion.div>
-                            )}
-                        </Marker>
-                    ))}
-                </AnimatePresence>
-
-                {/* 2. CLUSTERS: Groups of dots (lowlights) */}
-                {dotClusters.map((cluster, i) => (
-                    <Marker
-                        key={`cluster-${cluster.id}`} // Use stable ID as key
-                        latitude={cluster.lat}
-                        longitude={cluster.lng}
-                        anchor="center"
-                    >
-                        <div
-                            className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600/90 border-2 border-white/50 shadow-lg text-white font-bold text-xs cursor-pointer hover:scale-110 transition-transform"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                mapRef.current?.flyTo({
-                                    center: [cluster.lng, cluster.lat],
-                                    zoom: viewState.zoom + 2,
-                                    duration: 800
-                                });
-                            }}
-                        >
-                            {cluster.count}
-                        </div>
-                    </Marker>
-                ))}
-
-                {/* 3. DOTS: Single lowlight posts */}
-                {visibleDots.filter(msg => !clusteredDotIds.has(msg.id)).map((msg) => (
-                    <Marker
-                        key={`dot-${msg.id}`}
-                        latitude={msg.lat}
-                        longitude={msg.lng}
-                        anchor="center"
-                        onClick={(e) => {
-                            e.originalEvent.stopPropagation();
-                            handleMarkerClick(msg);
-                        }}
-                    >
-                        {/* Only show marker if it's NOT the selected one (expanding) */}
-                        {selectedMessage?.id !== msg.id && (
                             <motion.div
-                                layoutId={`message-container-${msg.id}`}
-                                className={`cursor-pointer transition-transform duration-300 hover:scale-150 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
-                            >
-                                <div className="w-2 h-2 rounded-full border border-white shadow-md bg-indigo-500" />
-                            </motion.div>
-                        )}
-                    </Marker>
-                ))}
-
-                {/* Message Details Overlay - Expanded from Bubble AS A MARKER */}
-                <AnimatePresence>
-                    {selectedMessage && (
-                        <Marker
-                            latitude={selectedMessage.lat}
-                            longitude={selectedMessage.lng}
-                            anchor="bottom"
-                            style={{ zIndex: 100 }} // Ensure it's on top
-                        >
-                            <MessageDetails
-                                message={selectedMessage}
-                                layoutId={`message-container-${selectedMessage.id}`}
-                                onClose={() => {
-                                    setSelectedMessage(null);
-                                    setMessageDetailsOpen(false);
+                                initial={{
+                                    scale: 0.9,
+                                    opacity: 0,
+                                    y: -10,
+                                    backdropFilter: 'blur(0px) saturate(100%)'
                                 }}
-                                onVote={handleVote}
-                                onAddFriend={onAddFriend}
-                                getFriendStatus={getFriendStatus}
-                                currentUser={session}
-                                unlimitedVotes={unlimitedVotes}
-                                locationName={locationName}
-                            />
+                                animate={{
+                                    scale: 1,
+                                    opacity: 1,
+                                    y: -20, // Float above the marker
+                                    backdropFilter: 'blur(6px) saturate(100%) hue-rotate(250deg)'
+                                }}
+                                exit={{
+                                    scale: 0.9,
+                                    opacity: 0,
+                                    y: -10,
+                                    backdropFilter: 'blur(0px) saturate(100%)'
+                                }}
+                                transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                                className="pointer-events-auto p-3.5 min-w-[200px] relative group/popup rounded-2xl border-2 border-emerald-400/40 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(16,185,129,0.2)] bg-emerald-950/45"
+                                style={{ transformStyle: 'preserve-3d' }}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="relative">
+                                            <div className="w-14 h-14 rounded-full border-2 border-emerald-300 shadow-xl overflow-hidden bg-black ring-2 ring-emerald-500/20">
+                                                {selectedFriend.image ? (
+                                                    <img src={selectedFriend.image} alt={selectedFriend.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full rounded-full bg-emerald-600 flex items-center justify-center border-2 border-black/10 font-bold text-xl text-white">
+                                                        {selectedFriend.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className={`absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full border-2 border-emerald-950 ${selectedFriend.lastSeen && (Date.now() - new Date(selectedFriend.lastSeen).getTime() < 5 * 60 * 1000)
+                                                ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.8)]'
+                                                : 'bg-gray-500'
+                                                }`}></div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-white font-bold text-base tracking-tight leading-tight">{selectedFriend.name}</h3>
+                                            <p className="text-emerald-400/90 font-medium text-xs">@{selectedFriend.username || selectedFriend.name.toLowerCase().replace(/\s/g, '')}</p>
+                                        </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setSelectedFriend(null); }}
+                                            className="absolute -top-1.5 -right-1.5 w-7 h-7 flex items-center justify-center bg-emerald-500/15 hover:bg-emerald-500/40 backdrop-blur-md border border-emerald-400/20 rounded-full transition-all text-emerald-100 hover:scale-110 shadow-md"
+                                        >
+                                            <X size={14} strokeWidth={3} />
+                                        </button>
+                                    </div>
+
+                                    {selectedFriend.lastSeen && (
+                                        <div className="flex items-center gap-2 text-[10px] text-emerald-50 bg-emerald-400/10 rounded-lg px-3 py-2 border border-emerald-400/15 relative z-10">
+                                            <Clock size={12} className="text-emerald-300" />
+                                            <span className="font-semibold">
+                                                {Date.now() - new Date(selectedFriend.lastSeen).getTime() < 5 * 60 * 1000
+                                                    ? 'Online Now'
+                                                    : `Seen ${formatRelativeTime(new Date(selectedFriend.lastSeen).getTime())} ago`}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Glass reflection effect */}
+                                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none opacity-40 z-10">
+                                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-white/10 via-transparent to-transparent rotate-45" />
+                                </div>
+                            </motion.div>
                         </Marker>
                     )}
                 </AnimatePresence>
-            </Map>
 
+                {/* 3. DOTS: Single lowlight posts (RENDER FIRST) */}
+                <AnimatePresence mode="popLayout">
+                    {visibleDots.filter(msg => !clusteredDotIds.has(msg.id)).map((msg) => {
+                        const offset = calculateMagnetOffset(msg.lat, msg.lng, bubbleMap, viewState.zoom);
+                        return (
+                            <AnimatedMarker
+                                key={`dot-${msg.id}`}
+                                latitude={offset.lat}
+                                longitude={offset.lng}
+                                anchor="center"
+                                zIndex={10}
+                                onClick={(e: any) => {
+                                    e.originalEvent.stopPropagation();
+                                    handleMarkerClick(msg);
+                                }}
+                            >
+                                {/* Only show marker if it's NOT the selected one (expanding) */}
+                                {selectedMessage?.id !== msg.id && (
+                                    <div
+                                        className={`cursor-pointer transition-transform duration-300 hover:scale-150 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
+                                    >
+                                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.4)] bg-indigo-500" />
+                                    </div>
+                                )}
+                            </AnimatedMarker>
+                        );
+                    })}
+                </AnimatePresence>
 
-            {locationError && (
-                <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded shadow-md z-10 text-xs">
-                    Location Error: {locationError.message}
+                {/* 2. CLUSTERS: Groups of dots (lowlights) */}
+                <AnimatePresence mode="popLayout">
+                    {dotClusters.map((cluster) => (
+                        <AnimatedMarker
+                            key={`cluster-${cluster.id}`}
+                            latitude={cluster.lat}
+                            longitude={cluster.lng}
+                            anchor="center"
+                            zIndex={20}
+                        >
+                            <div
+                                className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white/80 shadow-[0_0_15px_rgba(124,58,237,0.5)] text-white font-bold text-sm cursor-pointer hover:scale-110 transition-transform"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    mapRef.current?.flyTo({
+                                        center: [cluster.lng, cluster.lat],
+                                        zoom: viewState.zoom + 2,
+                                        duration: 800
+                                    });
+                                }}
+                            >
+                                {cluster.count}
+                            </div>
+                        </AnimatedMarker>
+                    ))}
+                </AnimatePresence>
+
+                {/* 1. BUBBLES: Posts to show as full bubbles (RENDER LAST) */}
+                <AnimatePresence mode="popLayout">
+                    {bubblesToRender.map(({ msg, isExiting }) => {
+                        const isPremium = msg.userIsPremium;
+                        const isFriends = msg.visibility === 'friends';
+                        const zIndex = (isFriends ? 1000 : isPremium ? 500 : 100) + (msg.likes || 0);
+
+                        // Truly stable layoutId (using fallbacks for robust field matching)
+                        const lat = msg.lat !== undefined ? msg.lat : msg.latitude;
+                        const lng = msg.lng !== undefined ? msg.lng : msg.longitude;
+                        const bubbleLayoutId = `bubble-${lat?.toFixed(6)}-${lng?.toFixed(6)}`;
+
+                        // Also Ensure msg has lat/lng for child markers
+                        if (msg.lat === undefined) msg.lat = msg.latitude;
+                        if (msg.lng === undefined) msg.lng = msg.longitude;
+                        if (msg.text === undefined) msg.text = msg.content;
+
+                        return (
+                            <AnimatedMarker
+                                key={bubbleLayoutId}
+                                latitude={msg.lat}
+                                longitude={msg.lng}
+                                anchor="bottom"
+                                zIndex={zIndex}
+                                layoutId={bubbleLayoutId}
+                            >
+                                {/* Only show marker if it's NOT the selected one (expanding) */}
+                                {selectedMessage?.id !== msg.id && (
+                                    <div
+                                        className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
+                                    >
+                                        <MessageMarker
+                                            message={msg}
+                                            onVote={handleVote}
+                                            onClick={() => handleMarkerClick(msg)}
+                                            currentUser={currentUserData}
+                                            unlimitedVotes={unlimitedVotes}
+                                            isSelected={selectedMessage?.id === msg.id}
+                                            isNearCenter={true}
+                                            showActions={!isExiting && markersNearCenter.has(msg.id)}
+                                            zoom={viewState.zoom}
+                                            isExiting={isExiting}
+                                        />
+                                    </div>
+                                )}
+                            </AnimatedMarker>
+                        );
+                    })}
+                </AnimatePresence>
+
+                {/* Message Details Overlay - Expanded from Bubble AS A MARKER */}
+                {selectedMessage && (
+                    <Marker
+                        latitude={selectedMessage.lat}
+                        longitude={selectedMessage.lng}
+                        anchor="bottom"
+                        style={{ zIndex: 100 }} // Ensure it's on top
+                    >
+                        <MessageDetails
+                            message={selectedMessage}
+                            layoutId={`message-container-${selectedMessage.id}`}
+                            onClose={() => {
+                                setSelectedMessage(null);
+                                setMessageDetailsOpen(false);
+                            }}
+                            onVote={handleVote}
+                            onAddFriend={onAddFriend}
+                            getFriendStatus={getFriendStatus}
+                            currentUser={session}
+                            unlimitedVotes={unlimitedVotes}
+                            locationName={locationName}
+                        />
+                    </Marker>
+                )}
+            </MapGL>
+
+            {/* DEBUG FOCUS AREA VISUALIZER - Commented out for production */}
+            {/* 
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5] overflow-hidden">
+                <div 
+                    className="border-2 border-white/10 bg-white/5 rounded-2xl backdrop-blur-[1px] shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+                    style={{
+                        width: `${FOCUS_CONFIG.horizontalBand * 100}%`,
+                        height: `${FOCUS_CONFIG.verticalBand * 100}%`,
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/40 rounded-full border border-white/10">
+                        <span className="text-[9px] text-white/40 font-bold uppercase tracking-widest">Focus Zone</span>
+                    </div>
                 </div>
-            )}
+            </div>
+            */}
+
+
+            {
+                locationError && (
+                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded shadow-md z-10 text-xs">
+                        Location Error: {locationError.message}
+                    </div>
+                )
+            }
         </div>
     );
 }

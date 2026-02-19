@@ -21,6 +21,7 @@ import LoginModal from "@/components/LoginModal";
 import DebugPanel from "@/components/DebugPanel";
 import OnboardingModal from "@/components/OnboardingModal";
 import PushNotificationManager from "@/components/PushNotificationManager";
+import { LocalizationProvider } from "@/context/LocalizationContext";
 
 export const metadata: Metadata = {
   title: "geogram",
@@ -51,24 +52,26 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}>
         <SessionProvider>
-          <ConfigProvider>
-            <UIProvider>
-              {/* Persistent Map Background */}
-              <div className="absolute inset-0 z-0">
-                <Map />
-              </div>
+          <LocalizationProvider>
+            <ConfigProvider>
+              <UIProvider>
+                {/* Persistent Map Background */}
+                <div className="absolute inset-0 z-0">
+                  <Map />
+                </div>
 
-              {/* Page Content Overlay */}
-              <div className="relative z-10 w-full h-full pointer-events-none">
-                {children}
-              </div>
+                {/* Page Content Overlay */}
+                <div className="relative z-10 w-full h-full pointer-events-none">
+                  {children}
+                </div>
 
-              <DebugPanel />
-              <LoginModal />
-              <OnboardingModal />
-              <PushNotificationManager />
-            </UIProvider>
-          </ConfigProvider>
+                <DebugPanel />
+                <LoginModal />
+                <OnboardingModal />
+                <PushNotificationManager />
+              </UIProvider>
+            </ConfigProvider>
+          </LocalizationProvider>
         </SessionProvider>
       </body>
     </html>

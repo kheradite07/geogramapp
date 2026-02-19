@@ -9,12 +9,16 @@ import { useLocation } from "@/hooks/useLocation";
 import { useUser } from "@/hooks/useUser"; // Added useUser import
 import LevelUpOverlay from "@/components/LevelUpOverlay"; // Imported LevelUpOverlay
 import DailyLimitModal from "@/components/DailyLimitModal"; // Daily limit modal
+import BadgeEarnedModal from "@/components/BadgeEarnedModal"; // Badge celebration
 import { useSession, signIn } from "next-auth/react";
 import { useConfig } from "@/context/ConfigContext";
 import { useUI } from "@/context/UIContext";
+import { useTranslation } from "@/context/LocalizationContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Slot machine text animation component
 function SignInPrompt() {
+    const { t } = useTranslation();
     const { setLoginModalOpen } = useUI();
     return (
         <div style={{
@@ -54,7 +58,7 @@ function SignInPrompt() {
                 }}
             >
                 <span style={{ position: 'relative', zIndex: 10 }}>
-                    Sign In & Start Posting
+                    {t('sign_in_start_posting')}
                 </span>
             </button>
 
@@ -77,20 +81,8 @@ function SignInPrompt() {
     );
 }
 
-const PLACEHOLDER_PHRASES = [
-    "Hava nasıl?",
-    "Trafik durumu nasıl?",
-    "Yakınlarda en son gelişmeler nelerdir?",
-    "En iyi kahve nerede?",
-    "Bu akşam ne yapsam?",
-    "Manzara harika!",
-    "Konser var mı?",
-    "Acil durum var mı?",
-    "Spor yapmak için partner aranıyor.",
-    "Ders çalışacak kütüphane?"
-];
-
 export default function InputBar() {
+    const { t } = useTranslation();
     const [message, setMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
@@ -113,7 +105,8 @@ export default function InputBar() {
     useEffect(() => {
         if (!location) return;
 
-        const currentPhrase = PLACEHOLDER_PHRASES[phraseIndex];
+        const phrases = t('placeholder_phrases') as unknown as string[];
+        const currentPhrase = phrases[phraseIndex] || phrases[0];
 
         let typingSpeed = 100;
         if (isDeleting) typingSpeed = 50;
@@ -133,20 +126,21 @@ export default function InputBar() {
             } else if (isDeleting && charIndex === 0) {
                 // Finished deleting, move to next phrase
                 setIsDeleting(false);
-                setPhraseIndex(prev => (prev + 1) % PLACEHOLDER_PHRASES.length);
+                setPhraseIndex(prev => (prev + 1) % phrases.length);
             }
         };
 
         const timer = setTimeout(handleTyping, typingSpeed);
         return () => clearTimeout(timer);
-    }, [charIndex, isDeleting, phraseIndex, location]);
+    }, [charIndex, isDeleting, phraseIndex, location, t]);
 
 
-    const { mutate: mutateUser } = useUser(); // Get user mutator
+    const { user: currentUserData, mutate: mutateUser } = useUser(); // Get user data and mutator
 
     // Custom Daily Limit UI State
     const [limitError, setLimitError] = useState<{ show: boolean, resetTime?: string }>({ show: false });
     const [showLevelUp, setShowLevelUp] = useState<{ show: boolean, level: number }>({ show: false, level: 1 });
+    const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
 
     // Auto-hide limit error after 5 seconds
     useEffect(() => {
@@ -156,32 +150,62 @@ export default function InputBar() {
         }
     }, [limitError.show]);
 
+    const [isLaunching, setIsLaunching] = useState(false);
+    const [showRipple, setShowRipple] = useState(false);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!message.trim() || isSending || !location || message.length > maxChars) return;
 
         setIsSending(true);
-        // Pass visibility to sendMessage (requires update in hook/API)
-        // We expect sendMessage to return an object { success: boolean, error?: string, isPremiumCallback?: boolean, resetTime?: string }
-        const result = await sendMessage(message, location.lat, location.lng, visibility);
+        setIsLaunching(true);
 
-        // Check for Premium Limit Error (Limit Reached)
-        if (result && !result.success && result.isPremiumCallback) {
-            setLimitError({ show: true, resetTime: result.resetTime });
-        } else if (result && !result.success) {
-            alert(result.error || "Failed to post message");
-        } else {
-            // Success
-            setMessage("");
-            mutateUser(); // Force refresh user data to update XP/Level
+        const userContext = {
+            id: session?.user?.id,
+            name: currentUserData?.fullName || currentUserData?.name || session?.user?.name,
+            image: currentUserData?.image || session?.user?.image,
+            activeBadgeId: currentUserData?.activeBadgeId || (session?.user as any)?.activeBadgeId
+        };
 
-            // Check for Level Up
-            if (result.levelUp && result.userUpdates?.level) {
-                setShowLevelUp({ show: true, level: result.userUpdates.level });
+        // DELAY for synchronization: wait for Bolt to launch (approx 400ms)
+        // so the optimistic bubble "pops" exactly when the projectile hit happens
+        setTimeout(async () => {
+            // 1. Instant UI Feedback
+            setMessage(""); // Clear input bar immediately for a fast feel
+            setShowRipple(true);
+            setTimeout(() => setShowRipple(false), 1000);
+
+            // Standardize coordinates to 6 decimal places (approx 11cm precision)
+            // This ensures stable keys between optimistic and server data
+            const roundedLat = parseFloat(location.lat.toFixed(6));
+            const roundedLng = parseFloat(location.lng.toFixed(6));
+
+            // 2. Trigger the Optimistic Update via sendMessage
+            const result = await sendMessage(message, roundedLat, roundedLng, visibility, userContext);
+
+            // 3. Post-response sequence
+            setIsLaunching(false);
+            setIsSending(false);
+
+            if (result && !result.success && result.isPremiumCallback) {
+                setLimitError({ show: true, resetTime: result.resetTime });
+            } else if (result && !result.success) {
+                alert(result.error || "Failed to post message");
+            } else {
+                // Success
+                mutateUser(); // Force refresh user data to update XP/Level
+
+                // Check for Level Up
+                if (result.levelUp && result.userUpdates?.level) {
+                    setShowLevelUp({ show: true, level: result.userUpdates.level });
+                }
+
+                // Check for Earned Badges
+                if (result.userUpdates?.earnedBadges?.length > 0) {
+                    setEarnedBadges(result.userUpdates.earnedBadges);
+                }
             }
-        }
-
-        setIsSending(false);
+        }, 400);
     };
 
     if (isMessageDetailsOpen) return null;
@@ -208,7 +232,7 @@ export default function InputBar() {
                     }}
                 >
                     <MapPin size={14} style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
-                    <span>Location detected</span>
+                    <span>{t('location_detected')}</span>
                 </div>
             )}
 
@@ -263,8 +287,13 @@ export default function InputBar() {
                     {!session ? (
                         <SignInPrompt />
                     ) : (
-                        <form
+                        <motion.form
                             onSubmit={handleSubmit}
+                            animate={isLaunching ? {
+                                scale: [1, 0.96, 1.02, 1],
+                                y: [0, 8, -4, 0],
+                            } : { scale: 1, y: 0 }}
+                            transition={{ duration: 0.5, ease: "easeOut" }}
                             style={{
                                 position: 'relative',
                                 display: 'flex',
@@ -292,6 +321,34 @@ export default function InputBar() {
                                 ...(!location && { opacity: 0.6 })
                             }}
                         >
+                            {/* Launch Bolt Effect */}
+                            <AnimatePresence>
+                                {isLaunching && (
+                                    <motion.div
+                                        initial={{ y: 0, opacity: 1, scaleX: 1, scaleY: 1 }}
+                                        animate={{ y: -500, opacity: 0, scaleX: 0.2, scaleY: 2 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.8, ease: "circIn" }}
+                                        className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-64 pointer-events-none z-0"
+                                    >
+                                        <div className={`w-1 h-full mx-auto bg-gradient-to-t ${visibility === 'public' ? 'from-purple-400 via-indigo-400 to-transparent' : 'from-green-400 via-emerald-400 to-transparent'} blur-md opacity-80`} />
+                                        <div className={`w-8 h-8 -mt-4 mx-auto rounded-full ${visibility === 'public' ? 'bg-purple-300' : 'bg-green-300'} blur-xl opacity-60`} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Success Ripple Effect */}
+                            <AnimatePresence>
+                                {showRipple && (
+                                    <motion.div
+                                        initial={{ scale: 0.8, opacity: 1 }}
+                                        animate={{ scale: 1.5, opacity: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 1, ease: "easeOut" }}
+                                        className={`absolute inset-0 rounded-full border-4 ${visibility === 'public' ? 'border-purple-500/50' : 'border-green-500/50'} pointer-events-none z-[-1] shadow-[0_0_50px_rgba(168,85,247,0.5)]`}
+                                    />
+                                )}
+                            </AnimatePresence>
                             {/* Toggle Button */}
                             <div className="relative flex bg-black/30 rounded-full p-1 border border-white/5 ml-1 shrink-0">
                                 <div
@@ -302,7 +359,7 @@ export default function InputBar() {
                                     type="button"
                                     onClick={() => setVisibility('public')}
                                     className={`relative z-10 p-2 rounded-full transition-colors ${visibility === 'public' ? 'text-white' : 'text-white/40 hover:text-white/60'}`}
-                                    title="Public"
+                                    title={t('public')}
                                 >
                                     <Globe size={18} />
                                 </button>
@@ -310,7 +367,7 @@ export default function InputBar() {
                                     type="button"
                                     onClick={() => setVisibility('friends')}
                                     className={`relative z-10 p-2 rounded-full transition-colors ${visibility === 'friends' ? 'text-white' : 'text-white/40 hover:text-white/60'}`}
-                                    title="Friends Only"
+                                    title={t('friends_only')}
                                 >
                                     <Users size={18} />
                                 </button>
@@ -338,9 +395,12 @@ export default function InputBar() {
                                         type="text"
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
-                                        onFocus={() => setIsFocused(true)}
+                                        onFocus={() => {
+                                            setIsFocused(true);
+                                            triggerFocusLocation();
+                                        }}
                                         onBlur={() => setIsFocused(false)}
-                                        placeholder={location ? "" : "Waiting for location..."}
+                                        placeholder={location ? "" : t('waiting_location')}
                                         disabled={!location}
                                         maxLength={maxChars}
                                         style={{
@@ -405,7 +465,7 @@ export default function InputBar() {
                                     }}
                                 />
                             </button>
-                        </form>
+                        </motion.form>
                     )}
 
                     {/* Character count - only when signed in */}
@@ -419,19 +479,31 @@ export default function InputBar() {
                             marginRight: '16px',
                             textShadow: '0 1px 2px rgba(0,0,0,0.5)'
                         }}>
-                            {message.length} / {maxChars} characters
+                            {message.length} / {maxChars} {t('characters')}
                         </div>
                     )}
-                </div>
-            </div>
+                </div >
+            </div >
 
             {/* Level Up Overlay */}
-            {showLevelUp.show && (
-                <LevelUpOverlay
-                    level={showLevelUp.level}
-                    onClose={() => setShowLevelUp({ show: false, level: showLevelUp.level })}
-                />
-            )}
+            {
+                showLevelUp.show && (
+                    <LevelUpOverlay
+                        level={showLevelUp.level}
+                        onClose={() => setShowLevelUp({ show: false, level: showLevelUp.level })}
+                    />
+                )
+            }
+
+            {/* Badge Celebration Overlay */}
+            {
+                earnedBadges.length > 0 && (
+                    <BadgeEarnedModal
+                        badgeId={earnedBadges[0]}
+                        onClose={() => setEarnedBadges(prev => prev.slice(1))}
+                    />
+                )
+            }
         </>
     );
 }

@@ -2,20 +2,23 @@
 
 import { signIn } from "next-auth/react";
 import dynamic from 'next/dynamic';
+import { useTranslation } from "@/context/LocalizationContext";
 
 const MobileGoogleSignIn = dynamic(() => import('@/components/MobileGoogleSignIn'), {
     ssr: false,
 });
 
 export default function LoginPage() {
+    const { t } = useTranslation();
+
     return (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 pointer-events-none data-[overlay]:bg-transparent">
             <div className="w-full max-w-md p-8 space-y-8 rounded-2xl shadow-2xl backdrop-blur-xl border border-white/10 bg-black/40 pointer-events-auto transition-all hover:bg-black/50">
                 <div className="text-center">
                     <h2 className="text-3xl font-bold tracking-tight text-white drop-shadow-lg">
-                        Welcome to <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">geogram</span>
+                        {t('welcome_to')} <span className="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">geogram</span>
                     </h2>
-                    <p className="mt-2 text-sm text-gray-200">Sign in to start posting and viewing profiles</p>
+                    <p className="mt-2 text-sm text-gray-200">{t('login_page_desc')}</p>
                 </div>
 
                 <div className="space-y-4">
@@ -43,7 +46,7 @@ export default function LoginPage() {
                                 fill="#EA4335"
                             />
                         </svg>
-                        Sign in with Google
+                        {t('sign_in_with_google')}
                     </button>
 
                     <button
@@ -53,7 +56,7 @@ export default function LoginPage() {
                         <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.74 1.18 0 2.45-1.02 3.65-1.02 1.35.05 2.17.65 2.62 1.01-4.04 1.76-3.3 5.48-.35 7.15-1.9 2.57-2.8 4.67-4.49 5.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                         </svg>
-                        Sign in with Apple
+                        {t('sign_in_with_apple')}
                     </button>
                 </div>
             </div>

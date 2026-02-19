@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { LucideIcon } from "lucide-react";
 import { useUI } from "@/context/UIContext";
+import { useTranslation } from "@/context/LocalizationContext";
 
 interface AuthPromptProps {
     icon: LucideIcon;
@@ -12,6 +12,7 @@ interface AuthPromptProps {
 
 export default function AuthPrompt({ icon: Icon, title, description }: AuthPromptProps) {
     const { setLoginModalOpen } = useUI();
+    const { t } = useTranslation();
     return (
         <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-600/20 to-pink-600/20 flex items-center justify-center mb-2 animate-pulse">
@@ -30,7 +31,7 @@ export default function AuthPrompt({ icon: Icon, title, description }: AuthPromp
                 className="group relative px-8 py-3 bg-white text-black font-bold rounded-full transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]"
             >
                 <span className="relative z-10 flex items-center gap-2">
-                    Sign In
+                    {t('sign_in')}
                     <svg
                         className="w-4 h-4 transition-transform group-hover:translate-x-1"
                         fill="none"

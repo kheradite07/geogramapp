@@ -2,6 +2,7 @@
 
 import { Map, Users, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "@/context/LocalizationContext";
 
 type Tab = "map" | "friends" | "settings";
 
@@ -15,10 +16,11 @@ import { useUI } from "@/context/UIContext";
 
 export default function BottomMenu({ activeTab, onTabChange, notificationCount }: BottomMenuProps) {
     const { isKeyboardOpen } = useUI();
+    const { t } = useTranslation();
     const tabs = [
-        { id: "friends", icon: Users, label: "Friends" },
-        { id: "map", icon: Map, label: "Map" },
-        { id: "settings", icon: Settings, label: "Settings" },
+        { id: "friends", icon: Users, label: t('friends') },
+        { id: "map", icon: Map, label: t('map') },
+        { id: "settings", icon: Settings, label: t('settings') },
     ] as const;
 
     return (

@@ -11,6 +11,7 @@ export async function GET() {
     }
 
     const { email, name, image } = session.user;
+    console.log("[SYNC] Session user:", email);
 
     // NextAuth adapter should have already created the user, but we ensure it exists and return it with relations
     // We use finding unique because NextAuth adapter handles creation on login
@@ -18,9 +19,13 @@ export async function GET() {
         where: { email },
         include: {
             friendsRequested: { include: { receiver: true } },
-            friendsReceived: { include: { requester: true } }
+            friendsReceived: { include: { requester: true } },
+            badges: true
         }
     });
+
+    console.log("[SYNC] DB User found:", !!user);
+    if (user) console.log("[SYNC] User ID:", user.id);
 
     // Fallback if something went wrong or to ensure data consistency
     if (!user) {
@@ -28,5 +33,12 @@ export async function GET() {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(mapPrismaUserToFrontendUser(user));
+    try {
+        const mappedData = mapPrismaUserToFrontendUser(user, user.id);
+        console.log("[SYNC] Mapping successful");
+        return NextResponse.json(mappedData);
+    } catch (e) {
+        console.error("[SYNC] Mapping failed:", e);
+        return NextResponse.json({ error: "Mapping failed", detail: String(e) }, { status: 500 });
+    }
 }
