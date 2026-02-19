@@ -50,7 +50,8 @@ export async function POST(request: Request) {
                 },
                 friendsReceived: {
                     include: { requester: true }
-                }
+                },
+                badges: true
             }
         });
 
