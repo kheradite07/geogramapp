@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Lock, Check, Crown } from "lucide-react";
 import { useTranslation } from "@/context/LocalizationContext";
@@ -12,6 +13,7 @@ interface BadgeInfoModalProps {
     isActive: boolean;
     onClose: () => void;
     onActivate: (id: string) => void;
+    canActivate?: boolean;
 }
 
 export default function BadgeInfoModal({
@@ -19,16 +21,41 @@ export default function BadgeInfoModal({
     isEarned,
     isActive,
     onClose,
-    onActivate
+    onActivate,
+    canActivate = false
 }: BadgeInfoModalProps) {
     const { t } = useTranslation();
     const config = badgeId ? BADGE_CONFIGS[badgeId] : null;
+    const [mounted, setMounted] = React.useState(false);
 
-    if (!config) return null;
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
 
-    return (
+    React.useEffect(() => {
+        if (!badgeId) return;
+
+        const handleMovement = () => {
+            onClose();
+        };
+
+        // Use capture phase to detect any scroll-like movement on any container
+        window.addEventListener('scroll', handleMovement, true);
+        window.addEventListener('touchmove', handleMovement, true);
+        window.addEventListener('wheel', handleMovement, true);
+
+        return () => {
+            window.removeEventListener('scroll', handleMovement, true);
+            window.removeEventListener('touchmove', handleMovement, true);
+            window.removeEventListener('wheel', handleMovement, true);
+        };
+    }, [badgeId, onClose]);
+
+    if (!mounted) return null;
+
+    return createPortal(
         <AnimatePresence>
-            {badgeId && (
+            {badgeId && config && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <motion.div
@@ -36,7 +63,7 @@ export default function BadgeInfoModal({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto"
                     />
 
                     {/* Modal Content */}
@@ -44,7 +71,7 @@ export default function BadgeInfoModal({
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="relative w-full max-w-sm bg-[#120024] border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+                        className="relative w-full max-w-sm bg-[#120024] border border-white/10 rounded-3xl overflow-hidden shadow-2xl pointer-events-auto"
                     >
                         {/* Header Image/Gradient Area */}
                         <div className={`h-40 w-full bg-gradient-to-br ${config.style} flex items-center justify-center relative overflow-visible`}>
@@ -109,7 +136,7 @@ export default function BadgeInfoModal({
                                             <Check size={16} strokeWidth={3} />
                                             {t('active_badge')}
                                         </div>
-                                    ) : (
+                                    ) : canActivate ? (
                                         <button
                                             onClick={() => onActivate(badgeId)}
                                             className={`w-full py-4 rounded-2xl bg-gradient-to-r from-white/10 to-white/20 border border-white/10 text-white font-black text-xs uppercase tracking-[0.2em] hover:from-white/20 hover:to-white/30 transition-all active:scale-95 shadow-lg group`}
@@ -119,7 +146,7 @@ export default function BadgeInfoModal({
                                                 {t('activate_badge_hint')}
                                             </span>
                                         </button>
-                                    )
+                                    ) : null
                                 ) : (
                                     <div className="flex flex-col items-center gap-4 py-4 px-6 bg-white/5 border border-white/5 rounded-2xl">
                                         <div className="flex items-center gap-2 text-white/30 font-black text-[10px] uppercase tracking-widest">
@@ -137,6 +164,7 @@ export default function BadgeInfoModal({
                     </motion.div>
                 </div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

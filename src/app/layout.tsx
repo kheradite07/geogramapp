@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -22,6 +23,8 @@ import DebugPanel from "@/components/DebugPanel";
 import OnboardingModal from "@/components/OnboardingModal";
 import PushNotificationManager from "@/components/PushNotificationManager";
 import { LocalizationProvider } from "@/context/LocalizationContext";
+import AppListeners from "@/components/AppListeners";
+import { LazyMotion, domAnimation } from "framer-motion";
 
 export const metadata: Metadata = {
   title: "geogram",
@@ -55,20 +58,23 @@ export default function RootLayout({
           <LocalizationProvider>
             <ConfigProvider>
               <UIProvider>
-                {/* Persistent Map Background */}
-                <div className="absolute inset-0 z-0">
-                  <Map />
-                </div>
+                <LazyMotion features={domAnimation}>
+                  {/* Persistent Map Background */}
+                  <div className="absolute inset-0 z-0">
+                    <Map />
+                  </div>
 
-                {/* Page Content Overlay */}
-                <div className="relative z-10 w-full h-full pointer-events-none">
-                  {children}
-                </div>
+                  {/* Page Content Overlay */}
+                  <div className="relative z-10 w-full h-full pointer-events-none">
+                    {children}
+                  </div>
+                </LazyMotion>
 
                 <DebugPanel />
                 <LoginModal />
                 <OnboardingModal />
                 <PushNotificationManager />
+                <AppListeners />
               </UIProvider>
             </ConfigProvider>
           </LocalizationProvider>

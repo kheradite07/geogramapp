@@ -1,101 +1,143 @@
-// Brand Colors
-const COLORS = {
+export const COLORS = {
     background: "#1a0033", // Very dark purple (almost black)
-    land: "#5a189a",       // Much brighter Purple (was #3c096c)
-    water: "#050011",      // Match background
-    roads: "#9d4edd",      // Bright vivid purple for high contrast
+    land: "#5a189a",       // Brighter Purple
+    water: "#050011",      // Dark water
+    roads: "#9d4edd",      // Vivid purple
     text: "#e0aaff",       // Light lilac
 };
 
-export const customMapStyle = {
+export const FOG_CONFIG = {
+    range: [0.5, 10],
+    color: "#1a0033",
+    "high-color": "#5a189a",
+    "space-color": "#050011",
+    "star-intensity": 0.35,
+};
+
+export const STANDARD_STYLE_URL = "mapbox://styles/mapbox/standard";
+
+export const customMapStyle: any = {
     version: 8,
-    name: "Geogram Minimal",
+    name: "Geogram Custom",
+    sprite: "mapbox://sprites/mapbox/dark-v9",
     glyphs: "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
-    metadata: {},
     sources: {
         "mapbox-streets": {
             type: "vector",
-            url: "mapbox://mapbox.mapbox-streets-v8",
-        },
+            url: "mapbox://mapbox.mapbox-streets-v8"
+        }
     },
     layers: [
-        // Background
         {
             id: "background",
             type: "background",
-            paint: {
-                "background-color": COLORS.background,
-            },
+            paint: { "background-color": COLORS.background }
         },
-        // Water
-        {
-            id: "water",
-            source: "mapbox-streets",
-            "source-layer": "water",
-            type: "fill",
-            paint: {
-                "fill-color": COLORS.water,
-            },
-        },
-        // Landuse (Parks, etc - simplified)
         {
             id: "landuse",
             source: "mapbox-streets",
             "source-layer": "landuse",
             type: "fill",
-            paint: {
-                "fill-color": COLORS.land,
-                "fill-opacity": 0.5,
-            },
+            paint: { "fill-color": COLORS.land, "fill-opacity": 0.8 }
         },
-        // Roads (Lines)
+        {
+            id: "water",
+            source: "mapbox-streets",
+            "source-layer": "water",
+            type: "fill",
+            paint: { "fill-color": COLORS.water }
+        },
         {
             id: "road",
             source: "mapbox-streets",
             "source-layer": "road",
             type: "line",
+            layout: { "visibility": "visible" },
             paint: {
                 "line-color": COLORS.roads,
                 "line-width": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    5,
-                    ["match", ["get", "class"],
-                        ["motorway", "trunk"], 0.5,
-                        0.1 // barely visible
-                    ],
-                    8,
-                    ["match", ["get", "class"],
-                        ["motorway", "trunk"], 1.5,
-                        ["primary", "secondary"], 0.5,
-                        0.1
-                    ],
-                    10,
-                    ["match", ["get", "class"],
-                        ["motorway", "trunk"], 2,
-                        ["primary", "secondary"], 1.5,
-                        0.5 // streets/others
-                    ],
-                    14,
-                    ["match", ["get", "class"],
-                        ["motorway", "trunk"], 6,
-                        ["primary", "secondary"], 4,
-                        2 // streets
-                    ],
-                    18,
-                    ["match", ["get", "class"],
-                        ["motorway", "trunk"], 24,
-                        ["primary", "secondary"], 16,
-                        10 // streets
-                    ]
-                ],
-                "line-opacity": [
-                    "match", ["get", "class"],
-                    ["path", "pedestrian"], 0.4,
-                    0.6
-                ],
+                    "interpolate", ["linear"], ["zoom"],
+                    2, 0.1,
+                    6, 0.4,
+                    10, 0.6,
+                    12, 0.8,
+                    13, 1.0,
+                    15, 1.5,
+                    18, 5
+                ]
+            }
+        },
+        // --- PHYSICAL INFRASTRUCTURE: Aeroways (Airports) ---
+        {
+            id: "aeroway-area",
+            source: "mapbox-streets",
+            "source-layer": "aeroway",
+            type: "fill",
+            minzoom: 10,
+            layout: { "visibility": "visible" },
+            paint: {
+                "fill-color": COLORS.roads,
+                "fill-opacity": 0.5,
+            }
+        },
+        {
+            id: "aeroway-line",
+            source: "mapbox-streets",
+            "source-layer": "aeroway",
+            type: "line",
+            minzoom: 10,
+            layout: { "visibility": "visible" },
+            paint: {
+                "line-color": COLORS.roads,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 16, 6],
+                "line-opacity": 1,
+            }
+        },
+        // --- PHYSICAL INFRASTRUCTURE: Transit (Railways) ---
+        {
+            id: "transit-railway",
+            source: "mapbox-streets",
+            "source-layer": "road",
+            type: "line",
+            minzoom: 10,
+            layout: { "visibility": "none" },
+            paint: {
+                "line-color": COLORS.roads,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 15, 2],
+                "line-opacity": 0.5,
+                "line-dasharray": [2, 1],
             },
+            filter: ["in", ["get", "class"], ["literal", ["rail", "major_rail", "minor_rail"]]]
+        },
+        // 3D Buildings
+        {
+            id: "building-3d",
+            source: "mapbox-streets",
+            "source-layer": "building",
+            type: "fill-extrusion",
+            minzoom: 13,
+            layout: { "visibility": "none" },
+            paint: {
+                "fill-extrusion-vertical-gradient": true,
+                "fill-extrusion-color": [
+                    "interpolate", ["linear"], ["get", "height"],
+                    0, "#3c1f6b",
+                    15, "#6a3aaa",
+                    40, "#9d4edd",
+                    80, "#c77dff",
+                    150, "#e0aaff"
+                ],
+                "fill-extrusion-height": [
+                    "interpolate", ["linear"], ["zoom"],
+                    13, 0,
+                    13.5, ["get", "height"]
+                ],
+                "fill-extrusion-base": [
+                    "interpolate", ["linear"], ["zoom"],
+                    13, 0,
+                    13.5, ["get", "min_height"]
+                ]
+            }
         },
         // Water Outline (Coastline) - Enhanced
         {
@@ -109,11 +151,11 @@ export const customMapStyle = {
                     "interpolate",
                     ["linear"],
                     ["zoom"],
-                    2, 0.5,
-                    5, 1,
-                    10, 2
+                    2, 0.2,   // Thinner start
+                    6, 0.4,   // Sleek at mid-zoom
+                    12, 1.5   // Defined when close
                 ],
-                "line-opacity": 0.8, // More visible
+                "line-opacity": 0.6, // Slightly softer
             },
         },
         // Admin Boundaries - Countries (admin_level <= 2)
@@ -128,11 +170,11 @@ export const customMapStyle = {
                     "interpolate",
                     ["linear"],
                     ["zoom"],
-                    2, 0.8,
-                    5, 1.2,
-                    10, 1.8
+                    2, 0.4,   // Thinner global view
+                    6, 0.6,   // Professional mid-view
+                    12, 1.2   // Clear local view
                 ],
-                "line-opacity": 0.5,
+                "line-opacity": 0.4, // Softer integration
             },
             filter: ["<=", ["get", "admin_level"], 2]
         },
@@ -142,109 +184,179 @@ export const customMapStyle = {
             source: "mapbox-streets",
             "source-layer": "admin",
             type: "line",
+            minzoom: 7, // Hide until regional view to prevent clutter at zoom 4-6
             paint: {
                 "line-color": COLORS.text,
                 "line-width": [
                     "interpolate",
                     ["linear"],
                     ["zoom"],
-                    2, 0,
-                    5, 0.05,
-                    10, 0.1,
+                    7, 0.05,
+                    12, 0.1,
                     15, 0.15
                 ],
                 "line-opacity": 0.04,
             },
             filter: [">", ["get", "admin_level"], 2]
         },
-        // 3D Buildings
-        {
-            id: "building-3d",
-            source: "mapbox-streets",
-            "source-layer": "building",
-            type: "fill-extrusion",
-            minzoom: 14,
-            paint: {
-                "fill-extrusion-color": [
-                    "interpolate",
-                    ["linear"],
-                    ["get", "height"],
-                    0, COLORS.land,
-                    20, "#5a189a", // Brighter bump
-                    50, COLORS.roads,
-                    100, COLORS.text
-                ],
-                "fill-extrusion-height": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    14,
-                    0,
-                    14.05,
-                    ["get", "height"]
-                ],
-                "fill-extrusion-base": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    14,
-                    0,
-                    14.05,
-                    ["get", "min_height"]
-                ],
-                "fill-extrusion-opacity": 0.9,
-                "fill-extrusion-ambient-occlusion-intensity": 0.4,
-            },
-        },
-        // Country Labels (Always visible at low zoom)
+        // --- ADMINISTRATIVE: Country Labels ---
         {
             id: "country-label",
             source: "mapbox-streets",
             "source-layer": "place_label",
             type: "symbol",
-            minzoom: 1,
             maxzoom: 10,
+            filter: ["==", ["get", "class"], "country"],
             layout: {
-                "text-field": ["get", "name_en"],
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
                 "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
                 "text-size": [
                     "interpolate", ["linear"], ["zoom"],
-                    2, 12,
-                    8, 16
+                    1, 10,
+                    5, 14,
+                    8, 22
                 ],
                 "text-transform": "uppercase",
                 "text-letter-spacing": 0.1,
-            },
-            paint: {
-                "text-color": COLORS.text,
-                "text-halo-color": COLORS.background,
-                "text-halo-width": 2,
-                "text-opacity": 0.8,
-            },
-            filter: ["==", "class", "country"],
-        },
-        // Settlement Labels (Cities - Zoom dependent)
-        {
-            id: "settlement-label",
-            source: "mapbox-streets",
-            "source-layer": "place_label",
-            type: "symbol",
-            minzoom: 5, // Hide cities until zoom 5
-            layout: {
-                "text-field": ["get", "name_en"],
-                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-                "text-size": [
-                    "interpolate", ["linear"], ["zoom"],
-                    5, 10,
-                    12, 14
-                ],
+                "text-max-width": 8
             },
             paint: {
                 "text-color": COLORS.text,
                 "text-halo-color": COLORS.background,
                 "text-halo-width": 1.5,
-            },
-            filter: ["==", "class", "settlement"],
+                "text-opacity": ["interpolate", ["linear"], ["zoom"], 8, 1, 10, 0]
+            }
         },
-    ],
+        // --- TEXT LABELS (NO ICONS) for Place Names ---
+        // Tier 1: Major Cities (Global View)
+        {
+            id: "place-city-major",
+            source: "mapbox-streets",
+            "source-layer": "place_label",
+            type: "symbol",
+            minzoom: 4,
+            filter: ["all", ["==", ["get", "class"], "city"], ["<=", ["get", "rank"], 3]],
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 4, 12, 10, 16],
+                "text-anchor": "center"
+            },
+            paint: { "text-color": COLORS.text }
+        },
+        // Tier 2: Towns & Small Cities (Regional View)
+        {
+            id: "place-town",
+            source: "mapbox-streets",
+            "source-layer": "place_label",
+            type: "symbol",
+            minzoom: 8,
+            filter: ["in", ["get", "class"], ["literal", ["town", "city"]]],
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 12, 14],
+                "text-anchor": "center"
+            },
+            paint: { "text-color": COLORS.text }
+        },
+        // Tier 3: Neighborhoods, Suburbs, Villages (Local View)
+        {
+            id: "place-neighborhood",
+            source: "mapbox-streets",
+            "source-layer": "place_label",
+            type: "symbol",
+            minzoom: 11,
+            filter: ["in", ["get", "class"], ["literal", ["village", "suburb", "neighbourhood", "hamlet"]]],
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 14],
+                "text-anchor": "center"
+            },
+            paint: { "text-color": COLORS.text, "text-opacity": 0.8 }
+        },
+        // POI Labels - Airports
+        {
+            id: "airport-label",
+            source: "mapbox-streets",
+            "source-layer": "airport_label",
+            type: "symbol",
+            minzoom: 8,
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 8, 12, 14, 15],
+                "icon-image": ["concat", ["get", "maki"], "-15"],
+                "icon-size": 1.2,
+                "text-offset": [0, 1.2],
+                "text-anchor": "top"
+            },
+            paint: {
+                "text-color": COLORS.text,
+                "icon-color": COLORS.text,
+                "icon-halo-color": COLORS.background,
+                "icon-halo-width": 1
+            }
+        },
+        // POI Labels - Transit Stops (Metro, Rail, etc.)
+        {
+            id: "transit-stop-label",
+            source: "mapbox-streets",
+            "source-layer": "transit_stop_label",
+            type: "symbol",
+            minzoom: 11, // Show a bit earlier
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 16, 13],
+                "icon-image": [
+                    "coalesce",
+                    ["concat", ["get", "maki"], "-15"],
+                    "rail-15" // Fallback to generic rail icon
+                ],
+                "icon-size": 1,
+                "text-offset": [0, 1.2],
+                "text-anchor": "top",
+                "icon-allow-overlap": true // Ensure icons show up even in crowded areas
+            },
+            paint: {
+                "text-color": COLORS.text,
+                "icon-color": COLORS.text,
+                "icon-halo-color": COLORS.background,
+                "icon-halo-width": 1
+            }
+        },
+        // POI Labels - General (Cafes, Restaurants, etc.)
+        {
+            id: "poi-label-general",
+            source: "mapbox-streets",
+            "source-layer": "poi_label",
+            type: "symbol",
+            minzoom: 15,
+            layout: {
+                "visibility": "none",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 15, 10, 18, 13],
+                "icon-image": ["concat", ["get", "maki"], "-15"],
+                "icon-size": 1,
+                "text-offset": [0, 1.2],
+                "text-anchor": "top",
+
+            },
+            paint: {
+                "text-color": COLORS.text,
+                "text-opacity": 0.8,
+                "icon-color": COLORS.text,
+                "icon-halo-color": COLORS.background,
+                "icon-halo-width": 1
+            }
+        }
+    ]
 };

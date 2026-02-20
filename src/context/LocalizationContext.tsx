@@ -56,8 +56,8 @@ export const LocalizationProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const t = (key: TranslationKey): string => {
-        const trans = translations[lang] || translations.en;
-        return trans[key] || translations.en[key] || key;
+        const trans = (translations as any)[lang] || translations.en;
+        return (trans as any)[key] || (translations.en as any)[key] || key;
     };
 
     // Apply RTL on initial load if needed

@@ -18,7 +18,8 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { X, Heart, MessageCircle, Share2, ThumbsUp, ThumbsDown, Check, UserPlus, Clock, Share as ShareIcon, Shield, Send, Crown, Instagram, MoreHorizontal, MoreVertical, Flag, Ban } from "lucide-react";
 import { BADGE_CONFIGS } from "@/lib/badgeConfig";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
+import { memo } from "react";
 import { Message, Comment } from "@/lib/store";
 import BadgeEarnedModal from "./BadgeEarnedModal";
 
@@ -43,7 +44,7 @@ interface MessageDetailsProps {
     locationName?: string | null;
 }
 
-export default function MessageDetails({
+const MessageDetails = memo(({
     message,
     layoutId,
     onClose,
@@ -53,7 +54,7 @@ export default function MessageDetails({
     currentUser,
     unlimitedVotes,
     locationName
-}: MessageDetailsProps) {
+}: MessageDetailsProps) => {
     const { t } = useTranslation();
     const router = useRouter();
     const [comments, setComments] = useState<Comment[]>([]);
@@ -270,7 +271,7 @@ export default function MessageDetails({
 
 
     return (
-        <motion.div
+        <m.div
             className="w-[85vw] max-w-[320px] md:w-80 pointer-events-auto"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -626,11 +627,40 @@ export default function MessageDetails({
                                     </div>
                                 </div>
 
-                                {/* Vote Pills (Attached exactly like screenshot) */}
-                                <div className="absolute -right-3 -top-3 flex flex-col gap-2 scale-90 origin-bottom-left">
-                                    <div className="bg-[#10b981] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                        <ThumbsUp size={10} className="text-white fill-current" /> {message.likes || 0}
-                                    </div>
+                                {/* NEW HEART LIKE BUTTON - Matches Map bubble design */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '-6px',
+                                        right: '-6px',
+                                        zIndex: 100,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        minWidth: '28px',
+                                        height: '28px',
+                                        padding: '0 8px',
+                                        borderRadius: '9999px',
+                                        background: 'rgba(0,0,0,0.6)',
+                                        border: '1px solid rgba(255,255,255,0.4)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                        backdropFilter: 'blur(12px)',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <svg
+                                        style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.7)' }}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                    >
+                                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                    </svg>
+                                    {(message.likes || 0) > 0 && (
+                                        <span style={{ fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '-0.025em' }}>
+                                            {message.likes}
+                                        </span>
+                                    )}
                                 </div>
 
                             </div>
@@ -668,7 +698,7 @@ export default function MessageDetails({
             {
                 showShareMenu && typeof document !== 'undefined' && createPortal(
                     <AnimatePresence mode="wait">
-                        <motion.div
+                        <m.div
                             key="backdrop"
                             className="fixed inset-0 z-[2147483647] bg-black/60 pointer-events-auto"
                             initial={{ opacity: 0 }}
@@ -680,7 +710,7 @@ export default function MessageDetails({
                                 setIsGenerating(false);
                             }}
                         />
-                        <motion.div
+                        <m.div
                             key="sheet"
                             className="fixed bottom-0 left-0 right-0 z-[2147483647] pointer-events-none flex justify-center"
                             initial={{ y: "100%" }}
@@ -739,7 +769,7 @@ export default function MessageDetails({
                                     </button>
                                 </div>
                             </div>
-                        </motion.div>
+                        </m.div>
                     </AnimatePresence>,
                     document.body
                 )
@@ -754,6 +784,9 @@ export default function MessageDetails({
                     />
                 )
             }
-        </motion.div >
+        </m.div>
     );
-}
+});
+
+MessageDetails.displayName = 'MessageDetails';
+export default MessageDetails;

@@ -8,7 +8,7 @@ export default function ShareTestPage() {
     // Mock Data
     const message = {
         id: "debug-123",
-        text: "Polis birini arıyo metrobüs durağında",
+        text: "Lorem ipsum dolor sit amet",
         userName: "şenelimm",
         userImage: "https://github.com/shadcn.png", // Placeholder
         timestamp: Date.now() - 1000 * 60 * 60 * 4, // 4 hours ago
@@ -120,16 +120,40 @@ export default function ShareTestPage() {
                                 </div>
                             </div>
 
-                            {/* Vote Pills */}
-                            <div className="absolute -right-3 -top-3 flex flex-col gap-2 scale-90 origin-bottom-left">
-                                <div className="bg-[#10b981] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                    <ThumbsUp size={10} className="text-white fill-current" /> {message.likes || 0}
-                                </div>
-                            </div>
-                            <div className="absolute -right-3 -bottom-3 flex flex-col gap-2 scale-90 origin-top-left">
-                                <div className="bg-[#ef4444] text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 flex items-center gap-1">
-                                    <ThumbsDown size={10} className="text-white fill-current" /> 0
-                                </div>
+                            {/* NEW HEART LIKE BUTTON - Matches Map bubble design */}
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    bottom: '-6px',
+                                    right: '-6px',
+                                    zIndex: 100,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    minWidth: '28px',
+                                    height: '28px',
+                                    padding: '0 8px',
+                                    borderRadius: '9999px',
+                                    background: 'rgba(0,0,0,0.6)',
+                                    border: '1px solid rgba(255,255,255,0.4)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                    backdropFilter: 'blur(12px)',
+                                    gap: '4px'
+                                }}
+                            >
+                                <svg
+                                    style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.7)' }}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                >
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                </svg>
+                                {(message.likes || 0) > 0 && (
+                                    <span style={{ fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '-0.025em' }}>
+                                        {message.likes}
+                                    </span>
+                                )}
                             </div>
 
                         </div>

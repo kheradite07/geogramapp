@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appId: 'com.geogram.app',
   appName: 'geogram',
   webDir: 'out',
+  backgroundColor: '#1a0033', // Phase 3: solid background to prevent WebView compositor overdraw on WebGL
   server: {
+
     url: 'https://192.168.111.13:3001',
     cleartext: true,
     androidScheme: 'https',

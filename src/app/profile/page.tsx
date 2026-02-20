@@ -247,6 +247,7 @@ function ProfileContent() {
                 badgeId={selectedBadgeId}
                 isEarned={isOwnProfile ? (!!currentUser?.badges?.find((b: any) => b.badgeId === selectedBadgeId)) : (!!displayUser.badges?.find((b: any) => b.badgeId === selectedBadgeId))}
                 isActive={displayUser.activeBadgeId === selectedBadgeId}
+                canActivate={isOwnProfile}
                 onClose={() => setSelectedBadgeId(null)}
                 onActivate={async (id) => {
                     if (!isOwnProfile) return;

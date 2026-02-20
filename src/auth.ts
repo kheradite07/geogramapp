@@ -75,6 +75,98 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     return null;
                 }
             }
+        }),
+        Credentials({
+            id: "supabase",
+            name: "Email and Password",
+            credentials: {
+                email: { label: "Email", type: "email" },
+                password: { label: "Password", type: "password" }
+            },
+            async authorize(credentials) {
+                console.log("---- SUPABASE AUTH START ----");
+                try {
+                    const email = credentials.email as string;
+                    const password = credentials.password as string;
+
+                    if (!email || !password) return null;
+
+                    // Dynamically import supabase to avoid circular dependencies if any
+                    const { supabase } = await import("@/lib/supabase");
+
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email,
+                        password,
+                    });
+
+                    if (error || !data.user) {
+                        console.error("Supabase Auth Error:", error?.message);
+                        return null;
+                    }
+
+                    // Ensure user exists in Prisma DB (sync if necessary)
+                    let user = await prisma.user.findUnique({
+                        where: { email: data.user.email }
+                    });
+
+                    if (!user) {
+                        user = await prisma.user.create({
+                            data: {
+                                email: data.user.email,
+                                name: data.user.email?.split('@')[0],
+                            }
+                        });
+                    }
+
+                    return user;
+                } catch (error) {
+                    console.error("Supabase Credentials Auth Error:", error);
+                    return null;
+                }
+            }
+        }),
+        Credentials({
+            id: "supabase-token",
+            name: "Supabase Token",
+            credentials: {
+                accessToken: { label: "Access Token", type: "text" }
+            },
+            async authorize(credentials) {
+                console.log("---- SUPABASE TOKEN AUTH START ----");
+                try {
+                    const accessToken = credentials.accessToken as string;
+                    if (!accessToken) return null;
+
+                    const { supabase } = await import("@/lib/supabase");
+
+                    // Verify token with Supabase
+                    const { data: { user: sbUser }, error } = await supabase.auth.getUser(accessToken);
+
+                    if (error || !sbUser) {
+                        console.error("Supabase Token Verification Error:", error?.message);
+                        return null;
+                    }
+
+                    // Ensure user exists in Prisma DB
+                    let user = await prisma.user.findUnique({
+                        where: { email: sbUser.email }
+                    });
+
+                    if (!user) {
+                        user = await prisma.user.create({
+                            data: {
+                                email: sbUser.email!,
+                                name: sbUser.email?.split('@')[0],
+                            }
+                        });
+                    }
+
+                    return user;
+                } catch (error) {
+                    console.error("Supabase Token Auth Error:", error);
+                    return null;
+                }
+            }
         })
     ],
     pages: {

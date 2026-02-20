@@ -1,24 +1,49 @@
 "use client";
 
-import MapGL, { Marker, NavigationControl, GeolocateControl, MapRef } from "react-map-gl/mapbox";
+import MapGL, { Marker, NavigationControl, GeolocateControl, MapRef, Source, Layer } from "react-map-gl/mapbox";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLocation } from "@/hooks/useLocation";
 import { useMessages } from "@/hooks/useMessages";
-import { customMapStyle } from "@/lib/mapboxStyle";
+import { customMapStyle, FOG_CONFIG, COLORS } from "@/lib/mapboxStyle";
 import { useConfig } from "@/context/ConfigContext";
 import { Message } from "@/lib/store";
 import { useSession } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { useUI } from "@/context/UIContext";
 import { UserPlus, Check, Clock, Search, X } from "lucide-react";
-import { motion, AnimatePresence, animate, useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
+import { m, AnimatePresence, animate, useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
+import { memo } from "react";
+import throttle from "lodash/throttle";
 import MessageDetails from "./MessageDetails";
+
 import VoteControls from "./VoteControls";
 import MapLayers, { FilterMode } from "./MapLayers";
 import { useTranslation } from "@/context/LocalizationContext";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+// --- PHASE 4: DEVICE PIXEL RATIO (DPI) CLAMPING (MODULE LEVEL) ---
+// We execute this immediately upon script load (before React Map GL mounts and reads it).
+if (typeof window !== 'undefined') {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    // Removed `!!window.Capacitor` check because Capacitor might not be fully injected
+    // at the very millisecond this file is parsed, but the Android UserAgent is always present.
+    if (isAndroid && window.devicePixelRatio > 1.5) {
+        console.log(`[Phase 4] EARLY Clamping DPI from ${window.devicePixelRatio} to 1.5 for Mapbox WebView performance`);
+        try {
+            Object.defineProperty(window, 'devicePixelRatio', {
+                get: function () {
+                    return 1.5;
+                },
+                configurable: true // allow re-definition if necessary
+            });
+        } catch (e) {
+            console.error("Could not override devicePixelRatio:", e);
+        }
+    }
+}
+// -----------------------------------------------------------------
 
 // Helper for relative time
 const formatRelativeTime = (timestamp: number) => {
@@ -39,6 +64,7 @@ const formatRelativeTime = (timestamp: number) => {
     return `${days}d`;
 };
 
+
 const UserAura = () => (
     <>
         <div className="absolute inset-0 bg-green-400/50 rounded-full animate-ping pointer-events-none"></div>
@@ -48,7 +74,7 @@ const UserAura = () => (
 );
 
 // Custom User Location Marker Component
-const UserLocationMarker = ({ image, name }: { image?: string | null, name?: string | null }) => (
+const UserLocationMarker = memo(({ image, name }: { image?: string | null, name?: string | null }) => (
     <div className="relative flex items-center justify-center w-10 h-10 cursor-default pointer-events-none">
         <UserAura />
 
@@ -63,9 +89,10 @@ const UserLocationMarker = ({ image, name }: { image?: string | null, name?: str
             )}
         </div>
     </div>
-);
+));
+UserLocationMarker.displayName = 'UserLocationMarker';
 
-const FriendMarker = ({ friend, onClick, showAura }: { friend: any, onClick?: () => void, showAura?: boolean }) => (
+const FriendMarker = memo(({ friend, onClick, showAura }: { friend: any, onClick?: () => void, showAura?: boolean }) => (
     <div className="group relative cursor-pointer" onClick={(e) => {
         e.stopPropagation();
         onClick?.();
@@ -102,7 +129,8 @@ const FriendMarker = ({ friend, onClick, showAura }: { friend: any, onClick?: ()
             )}
         </div>
     </div>
-);
+));
+FriendMarker.displayName = 'FriendMarker';
 
 const isSelf = (point: any) => point.id === 'self' || point.isSelf;
 
@@ -110,7 +138,7 @@ const isSelf = (point: any) => point.id === 'self' || point.isSelf;
 const ORBITAL_RADIUS = 32; // Distance from center
 const THRESHOLD_ZOOM_DECLUSTER = 18.2; // Zoom level where we show individual markers instead of just avatars
 
-const FriendClusterMarker = ({ count, friends, onClick, stackIndex = 0 }: { count: number, friends: any[], onClick?: () => void, stackIndex?: number }) => {
+const FriendClusterMarker = memo(({ count, friends, onClick, stackIndex = 0 }: { count: number, friends: any[], onClick?: () => void, stackIndex?: number }) => {
     // Each person is an individual marker. The leader (index 0) stays at center.
     // Others orbit around at a smaller scale.
     const person = friends[0];
@@ -162,11 +190,12 @@ const FriendClusterMarker = ({ count, friends, onClick, stackIndex = 0 }: { coun
             </div>
         </div>
     );
-};
+});
+FriendClusterMarker.displayName = 'FriendClusterMarker';
 
 
 // Smoothly Animated Marker Wrapper
-const AnimatedMarker = ({ latitude, longitude, children, zIndex = 0, layoutId, ...props }: any) => {
+const AnimatedMarker = memo(({ latitude, longitude, children, zIndex = 0, layoutId, ...props }: any) => {
     // Motion values for momentum preservation
     const latMV = useMotionValue(latitude);
     const lngMV = useMotionValue(longitude);
@@ -195,11 +224,12 @@ const AnimatedMarker = ({ latitude, longitude, children, zIndex = 0, layoutId, .
 
     return (
         <Marker {...props} latitude={coords.lat} longitude={coords.lng} style={{ transition: 'none', zIndex }}>
-            <motion.div
+            <m.div
                 layoutId={layoutId}
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0, opacity: 0 }}
+                style={{ willChange: 'transform' }}
                 transition={{
                     type: "spring",
                     stiffness: 300,
@@ -208,10 +238,11 @@ const AnimatedMarker = ({ latitude, longitude, children, zIndex = 0, layoutId, .
                 }}
             >
                 {children}
-            </motion.div>
+            </m.div>
         </Marker>
     );
-};
+});
+AnimatedMarker.displayName = 'AnimatedMarker';
 
 
 // Helper: Collision Avoidance (Reverse Magnet)
@@ -242,7 +273,6 @@ const calculateMagnetOffset = (
         const normLng = dLng / bubbleMarginLng;
         const distSq = normLat * normLat + normLng * normLng;
 
-        // If inside the bubble's circular force field
         if (distSq < 1 && distSq > 0) {
             const dist = Math.sqrt(distSq);
             // Push it exactly to the nearest point on the circumference
@@ -254,15 +284,6 @@ const calculateMagnetOffset = (
     });
 
     return { lat: finalLat, lng: finalLng };
-};
-
-const FOG_CONFIG = {
-    range: [0.5, 10] as [number, number],
-    color: "#240046",
-    "high-color": "#1a0033",
-    "space-color": "#050011",
-    "horizon-blend": 0.05,
-    "star-intensity": 0.5
 };
 
 
@@ -441,7 +462,7 @@ const MessageMarker = ({
                 {/* PREMIUM DIRECT LIKE BUTTON - Bottom Right Corner */}
                 {showActions && !isExiting && (
                     <div className="absolute -bottom-1.5 -right-1.5 z-[100] flex items-center">
-                        <motion.button
+                        <m.button
                             initial={false}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -456,7 +477,7 @@ const MessageMarker = ({
                         >
                             {/* Splash Ripple Effect */}
                             {message.likedBy?.includes(currentUser?.id) && (
-                                <motion.div
+                                <m.div
                                     initial={{ scale: 0, opacity: 0.5 }}
                                     animate={{ scale: 3, opacity: 0 }}
                                     transition={{ duration: 0.6, ease: "easeOut" }}
@@ -465,7 +486,7 @@ const MessageMarker = ({
                             )}
 
                             {/* Heart Icon with Heartbeat */}
-                            <motion.div
+                            <m.div
                                 animate={message.likedBy?.includes(currentUser?.id) ? {
                                     scale: [1, 1.2, 1],
                                 } : { scale: 1 }}
@@ -484,12 +505,12 @@ const MessageMarker = ({
                                 >
                                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                                 </svg>
-                            </motion.div>
+                            </m.div>
 
                             {/* Animated Like Count */}
                             <AnimatePresence mode="wait">
                                 {(message.likes || 0) > 0 && (
-                                    <motion.span
+                                    <m.span
                                         key={message.likes}
                                         initial={{ y: 5, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
@@ -497,10 +518,10 @@ const MessageMarker = ({
                                         className="text-[9px] font-black text-white pr-0.5 tracking-tight"
                                     >
                                         {message.likes}
-                                    </motion.span>
+                                    </m.span>
                                 )}
                             </AnimatePresence>
-                        </motion.button>
+                        </m.button>
                     </div>
                 )}
             </div>
@@ -537,7 +558,16 @@ const MessageMarker = ({
                     z-index: 10; /* Ensure bubble is on top of sidebar */
                 }
 
+                /* Disable expensive blur on Android WebViews for major performance boost */
+                @supports (-webkit-touch-callout: none) == false {
+                    .capacitor-android .message-bubble {
+                        backdrop-filter: none;
+                        background: rgba(30,30,30,0.9); /* Solid fallback */
+                    }
+                }
+
                 .message-bubble:hover {
+
                     transform: translateY(-4px) scale(1.05);
                     box-shadow: var(--bubble-shadow-hover);
                 }
@@ -616,11 +646,133 @@ const MessageMarker = ({
 };
 
 export default function MapComponent() {
+    const router = useRouter();
+
+    // --- MAP PROJECTION (2D / 3D) ---
+    // Persisted in localStorage so the setting survives reloads.
+    // SettingsView writes 'mercator' or 'globe' to this key.
+    const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('geogram_map_projection');
+            return saved === 'mercator' ? 'mercator' : 'globe';
+        }
+        return 'globe';
+    });
+
+    // Listen for settings changes from SettingsView (same-tab StorageEvent dispatch)
+    useEffect(() => {
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === 'geogram_map_projection') {
+                setMapProjection(e.newValue === 'mercator' ? 'mercator' : 'globe');
+            }
+            if (e.key === 'geogram_map_buildings') {
+                setShow3DBuildings(e.newValue !== 'false');
+            }
+            if (e.key === 'geogram_map_terrain') {
+                setShow3DTerrain(e.newValue === 'true');
+            }
+            if (e.key === 'geogram_map_poi') {
+                setShowPOI(e.newValue === 'true');
+            }
+            if (e.key === 'geogram_map_transit') {
+                setShowTransit(e.newValue === 'true');
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
+
+    // 3D Buildings toggle
+    const [show3DBuildings, setShow3DBuildings] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_buildings') !== 'false';
+        }
+        return true;
+    });
+
+    // 3D Terrain toggle
+    const [show3DTerrain, setShow3DTerrain] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_terrain') === 'true';
+        }
+        return false;
+    });
+
+    // POI & Place Labels toggle
+    const [showPOI, setShowPOI] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_poi') === 'true';
+        }
+        return false;
+    });
+
+    // Road & Transit Network toggle
+    const [showTransit, setShowTransit] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_transit') === 'true';
+        }
+        return false;
+    });
+
     const { t } = useTranslation();
     const { location, error: locationError } = useLocation();
     const { messages, voteMessage } = useMessages();
     const mapRef = useRef<MapRef>(null);
-    const router = useRouter();
+    const [isMapLoaded, setIsMapLoaded] = useState(false);
+
+
+    // --- CONSOLIDATED MAP SETTINGS SYNC ---
+    const syncMapSettings = useMemo(() => {
+        return () => {
+            const map = mapRef.current?.getMap();
+            if (!map || !isMapLoaded) return;
+
+            try {
+                // Projection
+                map.setProjection(mapProjection as any);
+
+                // 3D Buildings
+                const buildVis = show3DBuildings ? 'visible' : 'none';
+                if (map.getLayer('building-3d')) map.setLayoutProperty('building-3d', 'visibility', buildVis);
+
+                // POI & Place Labels
+                const poiVis = showPOI ? 'visible' : 'none';
+                if (map.getLayer('poi-label-general')) map.setLayoutProperty('poi-label-general', 'visibility', poiVis);
+                if (map.getLayer('place-city-major')) map.setLayoutProperty('place-city-major', 'visibility', poiVis);
+                if (map.getLayer('place-town')) map.setLayoutProperty('place-town', 'visibility', poiVis);
+                if (map.getLayer('place-neighborhood')) map.setLayoutProperty('place-neighborhood', 'visibility', poiVis);
+
+                // Road & Transit Network
+                const transitVis = showTransit ? 'visible' : 'none';
+                if (map.getLayer('aeroway-area')) map.setLayoutProperty('aeroway-area', 'visibility', transitVis);
+                if (map.getLayer('aeroway-line')) map.setLayoutProperty('aeroway-line', 'visibility', transitVis);
+                if (map.getLayer('transit-railway')) map.setLayoutProperty('transit-railway', 'visibility', transitVis);
+                if (map.getLayer('airport-label')) map.setLayoutProperty('airport-label', 'visibility', transitVis);
+                if (map.getLayer('transit-stop-label')) map.setLayoutProperty('transit-stop-label', 'visibility', transitVis);
+
+                // Terrain
+                if (show3DTerrain) {
+                    if (!map.getSource('mapbox-dem')) {
+                        map.addSource('mapbox-dem', {
+                            type: 'raster-dem',
+                            url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+                            tileSize: 512,
+                            maxzoom: 14
+                        });
+                    }
+                    map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+                } else {
+                    map.setTerrain(null as any);
+                }
+            } catch (e) { console.warn("Sync map settings error:", e); }
+        };
+    }, [isMapLoaded, mapProjection, show3DBuildings, showPOI, showTransit, show3DTerrain]);
+
+    // Apply sync whenever states or map load status change
+    useEffect(() => {
+        syncMapSettings();
+    }, [syncMapSettings]);
+    // ---------------------------------------------------
     const { data: session } = useSession();
 
     const [viewState, setViewState] = useState({
@@ -704,8 +856,6 @@ export default function MapComponent() {
     // REMOVED: Do not restore state from localStorage. Always start from World View.
     // useEffect(() => { ... }, []); 
 
-    // Track map load state
-    const [isMapLoaded, setIsMapLoaded] = useState(false);
 
     // Force Center on User Location when available (Initial Load Only)
     // AND wait for map to be loaded
@@ -748,13 +898,10 @@ export default function MapComponent() {
     // Save Map State on Move
     const handleMoveEnd = (evt: any) => {
         if (evt.target) {
-            setViewportBounds(evt.target.getBounds());
-
-            // Save current state
+            // Immediately save simple state for localStorage
             const newState = evt.viewState;
-            setViewState(newState); // Update local state
+            setViewState(newState);
 
-            // Persist to localStorage
             try {
                 localStorage.setItem('geogram_map_view_state', JSON.stringify({
                     latitude: newState.latitude,
@@ -764,8 +911,16 @@ export default function MapComponent() {
             } catch (e) {
                 // Ignore storage errors
             }
+
+            // Throttle the heavy viewport bounds calculation (used for filtering/clustering)
+            // This prevents massive React re-renders on every micro-movement
+            throttledSetBounds(evt.target);
         }
     };
+
+    const throttledSetBounds = useMemo(() => throttle((map: mapboxgl.Map) => {
+        setViewportBounds(map.getBounds());
+    }, 400, { leading: false, trailing: true }), []);
 
     // Initialize bounds once map is ready
     useEffect(() => {
@@ -778,7 +933,11 @@ export default function MapComponent() {
                 }
             }, 500);
         }
-    }, []);
+
+        // Cleanup throttle on unmount
+        return () => throttledSetBounds.cancel();
+    }, [throttledSetBounds]);
+
 
 
     // Filter messages - show all valid messages at their exact locations
@@ -930,10 +1089,10 @@ export default function MapComponent() {
                         const newMsg = (messages as Message[]).find(m => m.id === newId);
                         if (!newMsg) return false;
 
-                        const nLat = newMsg.lat !== undefined ? newMsg.lat : newMsg.latitude;
-                        const nLng = newMsg.lng !== undefined ? newMsg.lng : newMsg.longitude;
-                        const mLat = msg.lat !== undefined ? msg.lat : msg.latitude;
-                        const mLng = msg.lng !== undefined ? msg.lng : msg.longitude;
+                        const nLat = newMsg.lat;
+                        const nLng = newMsg.lng;
+                        const mLat = msg.lat;
+                        const mLng = msg.lng;
 
                         // Match by location (fixed to 6 decimals) - identical to bubbleLayoutId logic
                         return nLat?.toFixed(6) === mLat?.toFixed(6) &&
@@ -983,7 +1142,7 @@ export default function MapComponent() {
         const baseRadius = clusterRadius * 0.8;
         const zoomFactor = Math.pow(2, 13 - viewState.zoom);
         const clusterRadiusLat = baseRadius * zoomFactor;
-        const clusterRadiusLng = clusterRadiusLat / Math.cos(viewState.latitude * Math.PI / 180);
+        const clusterRadiusLng = baseRadius * zoomFactor / Math.cos(viewState.latitude * Math.PI / 180);
 
         // Sort by ID for deterministic clustering order
         // This prevents clusters from slightly shifting if the array order changes
@@ -1037,13 +1196,52 @@ export default function MapComponent() {
     }, [visibleDots, viewState.zoom, viewState.latitude, clusterRadius, bubbleMap]);
 
     // Remaining Single Dots (Not in any dot cluster)
-    // We can just filter them or return them from the loop above.
-    // Actually, let's make a Set of clustered IDs
     const clusteredDotIds = useMemo(() => {
         const ids = new Set<string>();
         dotClusters.forEach(c => c.ids.forEach(id => ids.add(id)));
         return ids;
     }, [dotClusters]);
+
+    // Prepare Dots GeoJSON for WebGL Layer
+    const dotsGeoJson = useMemo(() => {
+        const unclusteredDots = visibleDots.filter(msg => !clusteredDotIds.has(msg.id));
+        return {
+            type: 'FeatureCollection',
+            features: unclusteredDots.map(msg => {
+                const offset = calculateMagnetOffset(msg.lat, msg.lng, bubbleMap, viewState.zoom);
+                return {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [offset.lng, offset.lat]
+                    },
+                    properties: {
+                        ...msg,
+                        id: msg.id,
+                        visibility: msg.visibility,
+                    }
+                };
+            })
+        };
+    }, [visibleDots, clusteredDotIds, bubbleMap, viewState.zoom]);
+
+    const dotLayerStyle: any = {
+        id: 'dot-layer',
+        type: 'circle',
+        paint: {
+            'circle-color': [
+                'match',
+                ['get', 'visibility'],
+                'friends', '#10b981',
+                '#a855f7'
+            ],
+            'circle-radius': 6,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': selectedFriend ? 0.3 : 1,
+            'circle-stroke-opacity': selectedFriend ? 0.3 : 1
+        }
+    };
 
 
     // Tertiary Clustering: Flocking System (Each person is unique, but targets cluster center)
@@ -1054,7 +1252,7 @@ export default function MapComponent() {
         const baseRadius = clusterRadius * 1.5;
         const zoomFactor = Math.pow(2, 13 - viewState.zoom);
         const clusterRadiusLat = baseRadius * zoomFactor;
-        const clusterRadiusLng = clusterRadiusLat / Math.cos(viewState.latitude * Math.PI / 180);
+        const clusterRadiusLng = baseRadius * zoomFactor / Math.cos(viewState.latitude * Math.PI / 180);
 
         const allPeople = [];
         if (location) {
@@ -1379,7 +1577,7 @@ export default function MapComponent() {
                     {/* Expanded State (Input) */}
                     <AnimatePresence>
                         {isSearchOpen && (
-                            <motion.div
+                            <m.div
                                 initial={{ opacity: 0, scale: 0.9, width: 0 }}
                                 animate={{ opacity: 1, scale: 1, width: "100%" }}
                                 exit={{ opacity: 0, scale: 0.9, width: 0 }}
@@ -1438,7 +1636,7 @@ export default function MapComponent() {
                                         <X className="h-4 w-4" />
                                     </button>
                                 </form>
-                            </motion.div>
+                            </m.div>
                         )}
                     </AnimatePresence>
                 </div>
@@ -1469,6 +1667,7 @@ export default function MapComponent() {
                 onMove={(evt) => {
                     const previousZoom = viewState.zoom;
                     setViewState(evt.viewState);
+                    console.log("🔍 Current Zoom:", evt.viewState.zoom.toFixed(2));
 
                     // Update viewport bounds in real-time for clustering/magnet logic
                     if (evt.target) {
@@ -1539,8 +1738,18 @@ export default function MapComponent() {
                 mapboxAccessToken={MAPBOX_TOKEN}
                 attributionControl={false}
                 projection="globe"
-                fog={FOG_CONFIG}
+                logoPosition="bottom-left"
+                fog={FOG_CONFIG as any}
+                // --- PHASE 2 & 3 ANDROID WEBVIEW OPTIMIZATIONS ---
+                // Disable cross-source collisions to save CPU cycles during pans
+                crossSourceCollisions={false}
+                fadeDuration={0} // Disable label/icon fade-in for snappy render
+                preserveDrawingBuffer={false} // Phase 3: Prevent WebGL from holding frame buffers
+                // ---------------------------------------------
+
+
                 onLoad={() => {
+
                     console.log("🗺️ Map Loaded");
                     setIsMapLoaded(true);
                 }}
@@ -1701,7 +1910,7 @@ export default function MapComponent() {
                             anchor="bottom"
                             style={{ zIndex: 10000 }} // Ensure it's always on top of other markers
                         >
-                            <motion.div
+                            <m.div
                                 initial={{
                                     scale: 0.9,
                                     opacity: 0,
@@ -1770,39 +1979,24 @@ export default function MapComponent() {
                                 <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none opacity-40 z-10">
                                     <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-white/10 via-transparent to-transparent rotate-45" />
                                 </div>
-                            </motion.div>
+                            </m.div>
                         </Marker>
                     )}
                 </AnimatePresence>
 
-                {/* 3. DOTS: Single lowlight posts (RENDER FIRST) */}
-                <AnimatePresence mode="popLayout">
-                    {visibleDots.filter(msg => !clusteredDotIds.has(msg.id)).map((msg) => {
-                        const offset = calculateMagnetOffset(msg.lat, msg.lng, bubbleMap, viewState.zoom);
-                        return (
-                            <AnimatedMarker
-                                key={`dot-${msg.id}`}
-                                latitude={offset.lat}
-                                longitude={offset.lng}
-                                anchor="center"
-                                zIndex={10}
-                                onClick={(e: any) => {
-                                    e.originalEvent.stopPropagation();
-                                    handleMarkerClick(msg);
-                                }}
-                            >
-                                {/* Only show marker if it's NOT the selected one (expanding) */}
-                                {selectedMessage?.id !== msg.id && (
-                                    <div
-                                        className={`cursor-pointer transition-transform duration-300 hover:scale-150 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
-                                    >
-                                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.4)] bg-indigo-500" />
-                                    </div>
-                                )}
-                            </AnimatedMarker>
-                        );
-                    })}
-                </AnimatePresence>
+                {/* 3. DOTS: Single lowlight posts (WebGL Optimized) */}
+                <Source id="dots-source" type="geojson" data={dotsGeoJson as any}>
+                    <Layer
+                        {...dotLayerStyle}
+                        onClick={(e: any) => {
+                            const features = e.features;
+                            if (features && features.length > 0) {
+                                const msg = features[0].properties as any;
+                                handleMarkerClick(msg);
+                            }
+                        }}
+                    />
+                </Source>
 
                 {/* 2. CLUSTERS: Groups of dots (lowlights) */}
                 <AnimatePresence mode="popLayout">
@@ -1838,15 +2032,12 @@ export default function MapComponent() {
                         const isFriends = msg.visibility === 'friends';
                         const zIndex = (isFriends ? 1000 : isPremium ? 500 : 100) + (msg.likes || 0);
 
-                        // Truly stable layoutId (using fallbacks for robust field matching)
-                        const lat = msg.lat !== undefined ? msg.lat : msg.latitude;
-                        const lng = msg.lng !== undefined ? msg.lng : msg.longitude;
+                        // Truly stable layoutId
+                        const lat = msg.lat;
+                        const lng = msg.lng;
                         const bubbleLayoutId = `bubble-${lat?.toFixed(6)}-${lng?.toFixed(6)}`;
 
-                        // Also Ensure msg has lat/lng for child markers
-                        if (msg.lat === undefined) msg.lat = msg.latitude;
-                        if (msg.lng === undefined) msg.lng = msg.longitude;
-                        if (msg.text === undefined) msg.text = msg.content;
+
 
                         return (
                             <AnimatedMarker

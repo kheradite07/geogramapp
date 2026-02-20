@@ -124,6 +124,91 @@ export default function SettingsView() {
     const [isUploading, setIsUploading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
+    // 2D / 3D map toggle — persisted in localStorage, read by Map.tsx
+    const [is3DMap, setIs3DMap] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_projection') !== 'mercator';
+        }
+        return true;
+    });
+
+    const toggle3DMap = (value: boolean) => {
+        setIs3DMap(value);
+        localStorage.setItem('geogram_map_projection', value ? 'globe' : 'mercator');
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'geogram_map_projection',
+            newValue: value ? 'globe' : 'mercator',
+        }));
+    };
+
+    // 3D Buildings toggle
+    const [show3DBuildings, setShow3DBuildings] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_buildings') !== 'false';
+        }
+        return true;
+    });
+
+    const toggle3DBuildings = (value: boolean) => {
+        setShow3DBuildings(value);
+        localStorage.setItem('geogram_map_buildings', String(value));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'geogram_map_buildings',
+            newValue: String(value),
+        }));
+    };
+
+    // 3D Terrain toggle
+    const [show3DTerrain, setShow3DTerrain] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_terrain') === 'true';
+        }
+        return false;
+    });
+
+    const toggle3DTerrain = (value: boolean) => {
+        setShow3DTerrain(value);
+        localStorage.setItem('geogram_map_terrain', String(value));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'geogram_map_terrain',
+            newValue: String(value),
+        }));
+    };
+
+    // POI / Places toggle
+    const [showPOI, setShowPOI] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_poi') === 'true';
+        }
+        return false;
+    });
+
+    const togglePOI = (value: boolean) => {
+        setShowPOI(value);
+        localStorage.setItem('geogram_map_poi', String(value));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'geogram_map_poi',
+            newValue: String(value),
+        }));
+    };
+
+    // Road & Transit Network toggle
+    const [showTransit, setShowTransit] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('geogram_map_transit') === 'true';
+        }
+        return false;
+    });
+
+    const toggleTransit = (value: boolean) => {
+        setShowTransit(value);
+        localStorage.setItem('geogram_map_transit', String(value));
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'geogram_map_transit',
+            newValue: String(value),
+        }));
+    };
+
     const startEditing = () => {
         if (!user) return;
         setEditData({
@@ -570,7 +655,108 @@ export default function SettingsView() {
                     </div>
                 </div>
 
+                {/* Map Preferences */}
+                <div className="space-y-4">
+                    <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 pl-1">
+                        <span>🌐</span>
+                        Map
+                    </h3>
+
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
+                        <div className="pr-4">
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Globe Mode</div>
+                            <div className="text-white/40 text-xs leading-relaxed">
+                                {is3DMap ? 'Globe projection (3D). Tap to switch to flat 2D map.' : 'Mercator projection (2D). Tap to switch back to 3D globe.'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => toggle3DMap(!is3DMap)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none ${is3DMap
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                : 'bg-white/10'}`}
+                        >
+                            <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${is3DMap ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                            />
+                        </button>
+                    </div>
+
+                    {/* 3D Buildings */}
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
+                        <div className="pr-4">
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Buildings</div>
+                            <div className="text-white/40 text-xs leading-relaxed">
+                                {show3DBuildings ? 'Buildings shown in 3D. Tap to flatten.' : 'Buildings hidden. Tap to show in 3D.'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => toggle3DBuildings(!show3DBuildings)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none ${show3DBuildings
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                : 'bg-white/10'}`}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${show3DBuildings ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    {/* 3D Terrain */}
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
+                        <div className="pr-4">
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Terrain</div>
+                            <div className="text-white/40 text-xs leading-relaxed">
+                                {show3DTerrain ? 'Terrain elevation enabled. Tap to disable.' : 'Flat terrain. Tap to enable 3D elevation.'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => toggle3DTerrain(!show3DTerrain)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none ${show3DTerrain
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                : 'bg-white/10'}`}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${show3DTerrain ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    {/* Places & Labels (POI) */}
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
+                        <div className="pr-4">
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">Places & Labels</div>
+                            <div className="text-white/40 text-xs leading-relaxed">
+                                {showPOI ? 'Airports, restaurants, cafes & more are shown.' : 'Tap to show airports, restaurants, cafes & more.'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => togglePOI(!showPOI)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none ${showPOI
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                : 'bg-white/10'}`}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${showPOI ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    {/* Road & Transit Network */}
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
+                        <div className="pr-4">
+                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">Road & Transit Network</div>
+                            <div className="text-white/40 text-xs leading-relaxed">
+                                {showTransit ? 'Runways, railways and major transit lines are shown.' : 'Tap to show runways, railways and major transit lines.'}
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => toggleTransit(!showTransit)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none ${showTransit
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                : 'bg-white/10'}`}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${showTransit ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+                </div>
+
                 {/* Go Premium Section */}
+
                 {!user.isPremium && (
                     <div className="relative overflow-hidden bg-gradient-to-br from-yellow-900/40 via-black to-black border-2 border-yellow-500/50 rounded-3xl p-6 shadow-2xl shadow-yellow-500/10">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 rounded-full blur-[60px] -mr-10 -mt-10 pointer-events-none animate-pulse"></div>
@@ -630,6 +816,7 @@ export default function SettingsView() {
                 badgeId={selectedBadgeId}
                 isEarned={!!user.badges?.find(b => b.badgeId === selectedBadgeId)}
                 isActive={user.activeBadgeId === selectedBadgeId}
+                canActivate={true}
                 onClose={() => setSelectedBadgeId(null)}
                 onActivate={(id) => {
                     handleSelectBadge(id);

@@ -2,6 +2,7 @@
 
 import { useUser } from "@/hooks/useUser";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AuthPrompt from "@/components/AuthPrompt";
 import { Share } from "@capacitor/share";
 import { Users, Search, UserPlus, UserCheck, X, UserMinus, Loader2, Share2, Star } from "lucide-react";
@@ -10,6 +11,7 @@ import { useTranslation } from "@/context/LocalizationContext";
 export default function FriendsView() {
     const { user, searchUsers, handleFriendRequest, toggleGhostException, isLoading } = useUser();
     const { t } = useTranslation();
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -155,7 +157,10 @@ export default function FriendsView() {
 
                             return (
                                 <div key={result.id} className="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-2xl p-4 flex items-center justify-between transition-all duration-300 shadow-lg hover:shadow-purple-500/10">
-                                    <div className="flex items-center gap-4">
+                                    <div
+                                        className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity"
+                                        onClick={() => router.push(`/profile?id=${result.id}`)}
+                                    >
                                         <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-br from-purple-500/50 to-indigo-500/50">
                                             <div className="w-full h-full rounded-full bg-black/50 overflow-hidden flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
                                                 {result.image ? (
@@ -221,7 +226,10 @@ export default function FriendsView() {
                         {user.friendRequests.incoming.map((req) => (
                             <div key={req.id} className="relative overflow-hidden bg-gradient-to-r from-purple-900/40 to-black/40 border border-purple-500/30 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-purple-900/20">
                                 <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
-                                <div className="flex items-center gap-4 overflow-hidden">
+                                <div
+                                    className="flex items-center gap-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => router.push(`/profile?id=${req.id}`)}
+                                >
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold shrink-0 shadow-inner">
                                         {req.image ? (
                                             <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover" />
@@ -272,7 +280,10 @@ export default function FriendsView() {
 
                         {user.friendRequests.outgoing.map((req) => (
                             <div key={req.id} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 flex items-center justify-between transition-all duration-300">
-                                <div className="flex items-center gap-4 overflow-hidden">
+                                <div
+                                    className="flex items-center gap-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => router.push(`/profile?id=${req.id}`)}
+                                >
                                     <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/20 font-bold shrink-0">
                                         {req.image ? (
                                             <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover opacity-50" />
@@ -315,7 +326,10 @@ export default function FriendsView() {
                     ) : (
                         user.friends.map((friend) => (
                             <div key={friend.id} className="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl p-3 flex items-center justify-between transition-all duration-300">
-                                <div className="flex items-center gap-3">
+                                <div
+                                    className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => router.push(`/profile?id=${friend.id}`)}
+                                >
                                     <div className="relative">
                                         <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white font-bold shrink-0 ring-2 transition-all
                                             ${user.ghostExceptions.includes(friend.id)

@@ -67,23 +67,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
         // Visual Viewport API
         if (typeof window !== 'undefined' && window.visualViewport) {
             const viewport = window.visualViewport;
-            // We capture the initial height. Note: On mobile, initial load might be full height.
-            // Ideally we compare against window.screen.height or keep track of max height seen.
             let maxHeight = viewport.height;
 
             viewportHandler = () => {
-                // Update max height if we find a larger one (e.g. browser bar collapse)
                 if (viewport.height > maxHeight) maxHeight = viewport.height;
-
                 const isKeyboardVisible = (maxHeight - viewport.height) > 150;
 
                 setState(prev => {
-                    // Only update if state actually changes to avoid re-renders
                     if (prev.isKeyboardOpen !== isKeyboardVisible) {
-                        // If closing keyboard via viewport detection, also scroll to top
-                        if (!isKeyboardVisible && prev.isKeyboardOpen) {
-                            // window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }
                         return { ...prev, isKeyboardOpen: isKeyboardVisible };
                     }
                     return prev;

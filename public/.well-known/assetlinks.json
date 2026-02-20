@@ -1,0 +1,14 @@
+[
+    {
+        "relation": [
+            "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.geogram.app",
+            "sha256_cert_fingerprints": [
+                "FA:C6:17:45:DC:09:03:78:6F:B9:ED:46:29:0D:39:9F:73:B9:2E:98:56:6B:0D:F9:6A:66:BA:74:01:71:B3:36"
+            ]
+        }
+    }
+]
