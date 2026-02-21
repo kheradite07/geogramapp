@@ -44,10 +44,11 @@ export interface User {
         lastLat?: number;
         lastLng?: number;
         lastSeen?: Date;
+        activeBadgeId?: string;
     }[];
     friendRequests: {
-        incoming: { id: string; name: string; username?: string; image?: string }[];
-        outgoing: { id: string; name: string; username?: string; image?: string }[];
+        incoming: { id: string; name: string; username?: string; image?: string; activeBadgeId?: string }[];
+        outgoing: { id: string; name: string; username?: string; image?: string; activeBadgeId?: string }[];
     };
 }
 
@@ -81,7 +82,8 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewi
                     image: friend.image || undefined,
                     lastLat: shouldHideLocation ? undefined : (friend.lastLat || undefined),
                     lastLng: shouldHideLocation ? undefined : (friend.lastLng || undefined),
-                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined)
+                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined),
+                    activeBadgeId: friend.activeBadgeId || undefined
                 };
             }),
         ...prismaUser.friendsReceived
@@ -99,7 +101,8 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewi
                     image: friend.image || undefined,
                     lastLat: shouldHideLocation ? undefined : (friend.lastLat || undefined),
                     lastLng: shouldHideLocation ? undefined : (friend.lastLng || undefined),
-                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined)
+                    lastSeen: shouldHideLocation ? undefined : (friend.lastSeen || undefined),
+                    activeBadgeId: friend.activeBadgeId || undefined
                 };
             })
     ];
@@ -110,7 +113,8 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewi
             id: f.requester.id,
             name: f.requester.fullName || f.requester.name || "Unknown",
             username: f.requester.username || undefined,
-            image: f.requester.image || undefined
+            image: f.requester.image || undefined,
+            activeBadgeId: (f.requester as any).activeBadgeId || undefined
         }));
 
     const outgoing = prismaUser.friendsRequested
@@ -119,7 +123,8 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewi
             id: f.receiver.id,
             name: f.receiver.fullName || f.receiver.name || "Unknown",
             username: f.receiver.username || undefined,
-            image: f.receiver.image || undefined
+            image: f.receiver.image || undefined,
+            activeBadgeId: (f.receiver as any).activeBadgeId || undefined
         }));
 
     return {

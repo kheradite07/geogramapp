@@ -37,7 +37,8 @@ export async function GET(req: Request) {
             name: true,
             fullName: true,
             username: true,
-            image: true
+            image: true,
+            activeBadgeId: true
         }
     });
 
@@ -45,7 +46,8 @@ export async function GET(req: Request) {
         id: u.id,
         name: u.fullName || u.name || "Unknown", // Prefer full name
         username: u.username,
-        image: u.image
+        image: u.image,
+        activeBadgeId: u.activeBadgeId
     }));
 
     return NextResponse.json(results);

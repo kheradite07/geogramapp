@@ -174,7 +174,7 @@ export const customMapStyle: any = {
                     6, 0.6,   // Professional mid-view
                     12, 1.2   // Clear local view
                 ],
-                "line-opacity": 0.4, // Softer integration
+                "line-opacity": 0.6, // Softer integration
             },
             filter: ["<=", ["get", "admin_level"], 2]
         },
@@ -230,20 +230,46 @@ export const customMapStyle: any = {
         // --- TEXT LABELS (NO ICONS) for Place Names ---
         // Tier 1: Major Cities (Global View)
         {
+            id: "state-label",
+            source: "mapbox-streets",
+            "source-layer": "place_label",
+            type: "symbol",
+            minzoom: 3.50,
+            filter: ["==", ["get", "class"], "state"],
+            layout: {
+                "visibility": "visible",
+                "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 6, 14, 10, 20],
+                "text-anchor": "center"
+            },
+            paint: {
+                "text-color": COLORS.text,
+                "text-halo-color": COLORS.background,
+                "text-halo-width": 1.5,
+                "text-opacity": ["interpolate", ["linear"], ["zoom"], 3, 1, 6, 0]
+            }
+        },
+        // Tier 1: Major Cities (Global View)
+        {
             id: "place-city-major",
             source: "mapbox-streets",
             "source-layer": "place_label",
             type: "symbol",
             minzoom: 4,
-            filter: ["all", ["==", ["get", "class"], "city"], ["<=", ["get", "rank"], 3]],
+            filter: ["==", ["get", "class"], "city"],
             layout: {
-                "visibility": "none",
+                "visibility": "visible",
                 "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
-                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 4, 12, 10, 16],
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 6, 14, 10, 20],
                 "text-anchor": "center"
             },
-            paint: { "text-color": COLORS.text }
+            paint: {
+                "text-color": COLORS.text,
+                "text-halo-color": COLORS.background,
+                "text-halo-width": 1.5
+            }
         },
         // Tier 2: Towns & Small Cities (Regional View)
         {
@@ -251,33 +277,45 @@ export const customMapStyle: any = {
             source: "mapbox-streets",
             "source-layer": "place_label",
             type: "symbol",
-            minzoom: 8,
-            filter: ["in", ["get", "class"], ["literal", ["town", "city"]]],
+            minzoom: 5,
+            class: "town",
+            //filter: ["in", ["get", "class"], ["literal", ["town", "city", "settlement"]]],
+            //filter: ["==", "class", "town"],
             layout: {
-                "visibility": "none",
+                "visibility": "visible",
                 "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
-                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 12, 14],
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 3, 8, 9, 11],
                 "text-anchor": "center"
             },
-            paint: { "text-color": COLORS.text }
+            paint: {
+                "text-color": COLORS.text,
+                "text-halo-color": COLORS.background,
+                "text-halo-width": 1.5
+            }
         },
         // Tier 3: Neighborhoods, Suburbs, Villages (Local View)
         {
-            id: "place-neighborhood",
+            id: "settlement-label",
             source: "mapbox-streets",
             "source-layer": "place_label",
             type: "symbol",
-            minzoom: 11,
-            filter: ["in", ["get", "class"], ["literal", ["village", "suburb", "neighbourhood", "hamlet"]]],
+            minzoom: 10,
+            //filter: ["in", ["get", "class"], ["literal", ["village", "suburb", "neighbourhood", "hamlet", "quarter", "settlement"]]],
+            filter: ["==", "class", "settlement"],
             layout: {
-                "visibility": "none",
+                "visibility": "visible",
                 "text-field": ["coalesce", ["get", "name_en"], ["get", "name"]],
-                "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-                "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 14],
+                "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 16, 19],
                 "text-anchor": "center"
             },
-            paint: { "text-color": COLORS.text, "text-opacity": 0.8 }
+            paint: {
+                "text-color": COLORS.text,
+                "text-opacity": 1,
+                "text-halo-color": COLORS.background,
+                "text-halo-width": 1.5
+            }
         },
         // POI Labels - Airports
         {

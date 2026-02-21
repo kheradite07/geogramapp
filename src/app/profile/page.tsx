@@ -46,6 +46,7 @@ function ProfileContent() {
 
     // If no userId and dealing with own profile, use current user ID if available
     const effectiveUserId = userId || currentUser?.id;
+    const isFriendUser = !isOwnProfile && currentUser?.friends?.some((f: any) => f.id === effectiveUserId);
 
     const { data: publicProfile, error, isLoading } = useSWR(
         isOwnProfile || !effectiveUserId ? null : `/api/users/${effectiveUserId}`,
@@ -89,8 +90,8 @@ function ProfileContent() {
                 <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative">
                     <div className="flex flex-col items-center">
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                            <div className="relative w-32 h-32 rounded-full p-1 bg-black">
+                            <div className={`absolute inset-0 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 ${isFriendUser ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}></div>
+                            <div className={`relative w-32 h-32 rounded-full p-1 ${isFriendUser ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-black'}`}>
                                 {displayUser.image ? (
                                     <img
                                         src={displayUser.image}
@@ -103,20 +104,20 @@ function ProfileContent() {
                                     </div>
                                 )}
                             </div>
+                            {displayUser.activeBadgeId && BADGE_CONFIGS[displayUser.activeBadgeId] && (
+                                <div
+                                    title={t(BADGE_CONFIGS[displayUser.activeBadgeId].nameKey)}
+                                    className={`absolute top-0 right-0 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[displayUser.activeBadgeId].style} text-3xl shadow-lg transform rotate-12 ring-2 ring-black`}
+                                >
+                                    {BADGE_CONFIGS[displayUser.activeBadgeId].icon}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center justify-center gap-2 mt-6">
                             <h1 className="text-3xl font-bold text-white drop-shadow-md text-center">
                                 {displayUser.fullName || displayUser.name || "Anonymous User"}
                             </h1>
-                            {displayUser.activeBadgeId && BADGE_CONFIGS[displayUser.activeBadgeId] && (
-                                <span
-                                    title={t(BADGE_CONFIGS[displayUser.activeBadgeId].nameKey)}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[displayUser.activeBadgeId].style} text-xl shadow-lg transform rotate-12 ring-1 ring-white/20`}
-                                >
-                                    {BADGE_CONFIGS[displayUser.activeBadgeId].icon}
-                                </span>
-                            )}
                         </div>
 
                         <p className="text-cyan-400 text-lg font-medium mb-1">

@@ -15,6 +15,7 @@ import { useConfig } from "@/context/ConfigContext";
 import { useUI } from "@/context/UIContext";
 import { useTranslation } from "@/context/LocalizationContext";
 import { motion, AnimatePresence } from "framer-motion";
+import ActivePosts from "@/components/ActivePosts";
 
 // Slot machine text animation component
 function SignInPrompt() {
@@ -248,7 +249,7 @@ export default function InputBar() {
                     display: 'flex',
                     flexDirection: 'column', // Stack error message
                     alignItems: 'center', // Center content
-                    zIndex: 50,
+                    zIndex: 2000,
                     transition: 'bottom 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)' // smooth transition
                 }}
             >
@@ -282,6 +283,8 @@ export default function InputBar() {
                         <Locate size={20} className="group-hover:text-purple-400 transition-colors" />
                     </button>
 
+                    {/* Active Posts Window */}
+                    <ActivePosts />
 
                     {/* Input form */}
                     {!session ? (

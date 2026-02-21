@@ -89,7 +89,13 @@ export function useMessages() {
                 userUpdates: resData?.userUpdates
             };
         } catch (err: any) {
-            console.error("Optimistic Send failed:", err);
+            // Only log as error if it's not a business rule (like 403 limit)
+            if (err.status === 403) {
+                console.warn("🚫 Message post blocked by business rule:", err.message);
+            } else {
+                console.error("❌ Optimistic Send failed:", err);
+            }
+
             return {
                 success: false,
                 error: err.message || "Failed to post message",
@@ -144,7 +150,9 @@ export function useMessages() {
 
                     if (!res.ok) {
                         if (res.status === 404) return data.filter(m => m.id !== id);
-                        throw new Error("Failed to vote");
+                        const error: any = new Error("Failed to vote");
+                        error.status = res.status;
+                        throw error;
                     }
 
                     // Return the optimistic data as the "final" state to prevent flicker
@@ -153,8 +161,47 @@ export function useMessages() {
                 })(),
                 options
             );
-        } catch (err) {
-            console.error("Voting failed:", err);
+        } catch (err: any) {
+            if (err.status !== 404) {
+                console.error("❌ Voting failed:", err);
+            }
+        }
+    };
+
+    const deleteMessage = async (id: string) => {
+        if (!data) return { success: false };
+
+        // Optimistic: remove from list immediately
+        const updatedMessages = data.filter(msg => msg.id !== id);
+        const options = {
+            optimisticData: updatedMessages,
+            rollbackOnError: true,
+            populateCache: true,
+            revalidate: true
+        };
+
+        try {
+            await mutate(
+                (async () => {
+                    const res = await fetch(getApiUrl(`/api/messages/${id}`), {
+                        method: "DELETE",
+                        credentials: 'include',
+                    });
+
+                    if (!res.ok) {
+                        const error: any = new Error("Failed to delete message");
+                        error.status = res.status;
+                        throw error;
+                    }
+
+                    return updatedMessages;
+                })(),
+                options
+            );
+            return { success: true };
+        } catch (err: any) {
+            console.error("❌ Delete failed:", err);
+            return { success: false };
         }
     };
 
@@ -164,5 +211,6 @@ export function useMessages() {
         isError: error,
         sendMessage,
         voteMessage,
+        deleteMessage,
     };
 }

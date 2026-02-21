@@ -102,7 +102,7 @@ function LanguageDropdown({ lang, setLanguage }: { lang: string, setLanguage: (l
                                         <span className="text-2xl drop-shadow-sm">{l.flag}</span>
                                         <div className="flex-1 text-left">
                                             <div className="font-bold text-sm">{l.native}</div>
-                                            <div className="text-[9px] opacity-40 uppercase tracking-widest leading-none">{l.name}</div>
+                                            <div className="text-[10px] text-white/40 uppercase tracking-widest leading-none mt-1">{l.name}</div>
                                         </div>
                                         {lang === l.code && <Check size={16} className="text-purple-400 animate-in zoom-in duration-300" />}
                                     </button>
@@ -385,7 +385,7 @@ export default function SettingsView() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('full_name')}</label>
+                                    <label className={`block text-sm font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('full_name')}</label>
                                     <input
                                         type="text"
                                         value={editData.name}
@@ -397,7 +397,7 @@ export default function SettingsView() {
                                 </div>
 
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('username')}</label>
+                                    <label className={`block text-sm font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('username')}</label>
                                     <input
                                         type="text"
                                         value={editData.username}
@@ -409,7 +409,7 @@ export default function SettingsView() {
                                 </div>
 
                                 <div>
-                                    <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('bio')}</label>
+                                    <label className={`block text-sm font-bold uppercase tracking-wider mb-2 ml-1 ${user.isPremium ? 'text-yellow-500' : 'text-purple-300'}`}>{t('bio')}</label>
                                     <textarea
                                         value={editData.bio}
                                         onChange={e => setEditData({ ...editData, bio: e.target.value })}
@@ -454,23 +454,23 @@ export default function SettingsView() {
                                         </div>
                                     )}
                                 </div>
-                                {user.isPremium && (
+                                {user.isPremium && !user.activeBadgeId && (
                                     <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black w-8 h-8 flex items-center justify-center rounded-full border-2 border-black shadow-lg z-20" title="Premium Member">
                                         👑
+                                    </div>
+                                )}
+                                {user.activeBadgeId && BADGE_CONFIGS[user.activeBadgeId] && (
+                                    <div
+                                        title={t(BADGE_CONFIGS[user.activeBadgeId].nameKey)}
+                                        className={`absolute top-0 right-0 z-20 flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[user.activeBadgeId].style} text-2xl shadow-lg transform rotate-12 ring-2 ring-[#120024]`}
+                                    >
+                                        {BADGE_CONFIGS[user.activeBadgeId].icon}
                                     </div>
                                 )}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                     <h2 className="text-2xl font-bold text-white truncate leading-tight">{user.fullName || user.name}</h2>
-                                    {user.activeBadgeId && BADGE_CONFIGS[user.activeBadgeId] && (
-                                        <span
-                                            title={t(BADGE_CONFIGS[user.activeBadgeId].nameKey)}
-                                            className={`flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[user.activeBadgeId].style} text-xs shadow-lg transform rotate-12 ring-1 ring-white/20`}
-                                        >
-                                            {BADGE_CONFIGS[user.activeBadgeId].icon}
-                                        </span>
-                                    )}
                                     {user.isPremium && (
                                         <span className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                                             Premium
@@ -494,7 +494,7 @@ export default function SettingsView() {
 
                     <div className="flex justify-between items-end mb-2">
                         <div>
-                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">{t('level')}</div>
+                            <div className="text-white/80 text-sm font-bold uppercase tracking-wider mb-1">{t('level')}</div>
                             <div className="flex items-baseline gap-2">
                                 <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
                                     {user.level || 1}
@@ -506,7 +506,7 @@ export default function SettingsView() {
                             </div>
                         </div>
                         <div className="text-right">
-                            <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">{t('xp_points')}</div>
+                            <div className="text-white/80 text-sm font-bold uppercase tracking-wider mb-1">{t('xp_points')}</div>
                             <div className="text-xl font-bold text-white font-mono">
                                 {user.xp || 0} <span className="text-white/40 text-sm">/ {getXPForNextLevel(user.level || 1)}</span>
                             </div>
@@ -609,15 +609,19 @@ export default function SettingsView() {
 
                 {/* Privacy Settings */}
                 <div className="space-y-4">
-                    <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 pl-1">
-                        <Shield size={14} />
-                        Privacy
-                    </h3>
+                    <div className="flex items-center gap-3 px-1 mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
+                            <Shield size={18} />
+                        </div>
+                        <h3 className="text-lg font-black text-white uppercase tracking-widest">
+                            {t('privacy')}
+                        </h3>
+                    </div>
 
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">{t('hide_profile')}</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">{t('hide_profile')}</div>
+                            <div className="text-white/60 text-xs leading-relaxed">
                                 {t('hide_profile_desc')}
                             </div>
                         </div>
@@ -636,8 +640,8 @@ export default function SettingsView() {
 
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">{t('ghost_mode')}</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">{t('ghost_mode')}</div>
+                            <div className="text-white/60 text-xs leading-relaxed">
                                 {t('ghost_mode_desc')}
                             </div>
                         </div>
@@ -657,16 +661,22 @@ export default function SettingsView() {
 
                 {/* Map Preferences */}
                 <div className="space-y-4">
-                    <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2 pl-1">
-                        <span>🌐</span>
-                        Map
-                    </h3>
+                    <div className="flex items-center gap-3 px-1 mb-2">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
+                            <Globe size={18} />
+                        </div>
+                        <h3 className="text-lg font-black text-white uppercase tracking-widest">
+                            {t('map')}
+                        </h3>
+                    </div>
 
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Globe Mode</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
-                                {is3DMap ? 'Globe projection (3D). Tap to switch to flat 2D map.' : 'Mercator projection (2D). Tap to switch back to 3D globe.'}
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">
+                                {t('globe_3d')}
+                            </div>
+                            <div className="text-white/60 text-xs leading-relaxed">
+                                {is3DMap ? t('globe_3d_desc_on') : t('globe_3d_desc_off')}
                             </div>
                         </div>
                         <button
@@ -685,9 +695,11 @@ export default function SettingsView() {
                     {/* 3D Buildings */}
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Buildings</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
-                                {show3DBuildings ? 'Buildings shown in 3D. Tap to flatten.' : 'Buildings hidden. Tap to show in 3D.'}
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">
+                                {t('buildings_3d')}
+                            </div>
+                            <div className="text-white/60 text-xs leading-relaxed">
+                                {show3DBuildings ? t('buildings_3d_desc_on') : t('buildings_3d_desc_off')}
                             </div>
                         </div>
                         <button
@@ -703,9 +715,11 @@ export default function SettingsView() {
                     {/* 3D Terrain */}
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">3D Terrain</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
-                                {show3DTerrain ? 'Terrain elevation enabled. Tap to disable.' : 'Flat terrain. Tap to enable 3D elevation.'}
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">
+                                {t('terrain_3d')}
+                            </div>
+                            <div className="text-white/60 text-xs leading-relaxed">
+                                {show3DTerrain ? t('terrain_3d_desc_on') : t('terrain_3d_desc_off')}
                             </div>
                         </div>
                         <button
@@ -721,9 +735,11 @@ export default function SettingsView() {
                     {/* Places & Labels (POI) */}
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">Places & Labels</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
-                                {showPOI ? 'Airports, restaurants, cafes & more are shown.' : 'Tap to show airports, restaurants, cafes & more.'}
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">
+                                {t('places_labels')}
+                            </div>
+                            <div className="text-white/60 text-xs leading-relaxed">
+                                {showPOI ? t('places_labels_desc_on') : t('places_labels_desc_off')}
                             </div>
                         </div>
                         <button
@@ -739,9 +755,11 @@ export default function SettingsView() {
                     {/* Road & Transit Network */}
                     <div className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-center justify-between hover:bg-white/[0.07] transition-colors group">
                         <div className="pr-4">
-                            <div className="text-white font-semibold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-[10px] opacity-50">Road & Transit Network</div>
-                            <div className="text-white/40 text-xs leading-relaxed">
-                                {showTransit ? 'Runways, railways and major transit lines are shown.' : 'Tap to show runways, railways and major transit lines.'}
+                            <div className="text-white font-bold mb-1 group-hover:text-purple-200 transition-colors uppercase tracking-wider text-sm">
+                                {t('road_transit_network')}
+                            </div>
+                            <div className="text-white/60 text-xs leading-relaxed">
+                                {showTransit ? t('road_transit_network_desc_on') : t('road_transit_network_desc_off')}
                             </div>
                         </div>
                         <button
@@ -786,7 +804,7 @@ export default function SettingsView() {
                         <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
                             <Globe size={18} />
                         </div>
-                        <h2 className="text-lg font-bold text-white uppercase tracking-wider">{t('language')}</h2>
+                        <h3 className="text-lg font-black text-white uppercase tracking-widest">{t('language')}</h3>
                     </div>
 
                     <LanguageDropdown lang={lang} setLanguage={setLanguage} />

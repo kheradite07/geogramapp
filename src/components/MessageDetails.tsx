@@ -16,7 +16,7 @@ const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStorie
 import { toPng } from "html-to-image";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { X, Heart, MessageCircle, Share2, ThumbsUp, ThumbsDown, Check, UserPlus, Clock, Share as ShareIcon, Shield, Send, Crown, Instagram, MoreHorizontal, MoreVertical, Flag, Ban } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, ThumbsUp, ThumbsDown, Check, UserPlus, Clock, Share as ShareIcon, Shield, Send, Crown, Instagram, MoreHorizontal, MoreVertical, Flag, Ban, Trash2 } from "lucide-react";
 import { BADGE_CONFIGS } from "@/lib/badgeConfig";
 import { m, AnimatePresence } from "framer-motion";
 import { memo } from "react";
@@ -42,6 +42,7 @@ interface MessageDetailsProps {
     currentUser: any;
     unlimitedVotes: boolean;
     locationName?: string | null;
+    onDelete?: (id: string) => Promise<{ success: boolean }>;
 }
 
 const MessageDetails = memo(({
@@ -53,7 +54,8 @@ const MessageDetails = memo(({
     getFriendStatus,
     currentUser,
     unlimitedVotes,
-    locationName
+    locationName,
+    onDelete
 }: MessageDetailsProps) => {
     const { t } = useTranslation();
     const router = useRouter();
@@ -62,6 +64,31 @@ const MessageDetails = memo(({
     const [isLoadingComments, setIsLoadingComments] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    // currentUser passed from Map.tsx is a NextAuth session object: { user: { id, name, email } }
+    const currentUserId = currentUser?.user?.id ?? currentUser?.id;
+    const isOwner = !!(currentUserId && message.userId && currentUserId === message.userId);
+
+
+    const handleDelete = async () => {
+        if (!confirmDelete) {
+            setConfirmDelete(true);
+            // Auto-cancel after 3s
+            setTimeout(() => setConfirmDelete(false), 3000);
+            return;
+        }
+        if (!onDelete || isDeleting) return;
+        setIsDeleting(true);
+        const result = await onDelete(message.id);
+        if (result.success) {
+            onClose();
+        } else {
+            setIsDeleting(false);
+            setConfirmDelete(false);
+        }
+    };
 
     const isFriend = getFriendStatus(message.userId) === 'friend';
 
@@ -299,7 +326,7 @@ const MessageDetails = memo(({
                             onClick={() => message.userId && router.push(`/profile?id=${message.userId}`)}
                         >
                             <div className="relative">
-                                <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-br from-purple-500 to-indigo-500">
+                                <div className={`w-10 h-10 rounded-full p-[2px] ${isFriend ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-gradient-to-br from-purple-500 to-indigo-500'}`}>
                                     <div className="w-full h-full rounded-full bg-black overflow-hidden relative">
                                         {message.userImage ? (
                                             <img
@@ -314,6 +341,14 @@ const MessageDetails = memo(({
                                         )}
                                     </div>
                                 </div>
+                                {message.activeBadgeId && BADGE_CONFIGS[message.activeBadgeId] && (
+                                    <div
+                                        title={t(BADGE_CONFIGS[message.activeBadgeId].nameKey)}
+                                        className={`absolute -top-1 -right-1 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[message.activeBadgeId].style} text-xs shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                    >
+                                        {BADGE_CONFIGS[message.activeBadgeId].icon}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex-1 min-w-0">
@@ -321,14 +356,6 @@ const MessageDetails = memo(({
                                     <h3 className="text-white font-bold text-base leading-tight truncate group-hover/user:text-purple-300 transition-colors">
                                         {message.userName}
                                     </h3>
-                                    {message.activeBadgeId && BADGE_CONFIGS[message.activeBadgeId] && (
-                                        <span
-                                            title={t(BADGE_CONFIGS[message.activeBadgeId].nameKey)}
-                                            className={`flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[message.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20`}
-                                        >
-                                            {BADGE_CONFIGS[message.activeBadgeId].icon}
-                                        </span>
-                                    )}
                                 </div>
                                 <p className="text-white/40 text-[10px] font-medium truncate">
                                     {message.isAnonymous ? t('anonymous_user') : t('view_profile_action')}
@@ -367,6 +394,23 @@ const MessageDetails = memo(({
                                     {getFriendStatus(message.userId) === 'friend' ? <Check size={16} /> :
                                         getFriendStatus(message.userId) === 'sent' ? <Clock size={16} /> :
                                             <UserPlus size={16} />}
+                                </button>
+                            )}
+
+                            {/* Delete Button - owner only */}
+                            {isOwner && onDelete && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                    disabled={isDeleting}
+                                    className={`p-2 rounded-xl transition-all border disabled:opacity-50 ${confirmDelete
+                                        ? 'bg-red-500/30 text-red-400 border-red-500/50 animate-pulse'
+                                        : 'bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 border-white/5'
+                                        }`}
+                                    title={confirmDelete ? t('confirm_delete') || 'Sil?' : t('delete_post') || 'Sil'}
+                                >
+                                    {isDeleting
+                                        ? <div className="w-4 h-4 rounded-full border-2 border-red-400 border-t-transparent animate-spin" />
+                                        : <Trash2 size={16} />}
                                 </button>
                             )}
 

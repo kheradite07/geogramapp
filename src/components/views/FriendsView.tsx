@@ -7,6 +7,7 @@ import AuthPrompt from "@/components/AuthPrompt";
 import { Share } from "@capacitor/share";
 import { Users, Search, UserPlus, UserCheck, X, UserMinus, Loader2, Share2, Star } from "lucide-react";
 import { useTranslation } from "@/context/LocalizationContext";
+import { BADGE_CONFIGS } from "@/lib/badgeConfig";
 
 export default function FriendsView() {
     const { user, searchUsers, handleFriendRequest, toggleGhostException, isLoading } = useUser();
@@ -161,14 +162,24 @@ export default function FriendsView() {
                                         className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity"
                                         onClick={() => router.push(`/profile?id=${result.id}`)}
                                     >
-                                        <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-br from-purple-500/50 to-indigo-500/50">
-                                            <div className="w-full h-full rounded-full bg-black/50 overflow-hidden flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
-                                                {result.image ? (
-                                                    <img src={result.image} alt={result.name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    result.name.charAt(0).toUpperCase()
-                                                )}
+                                        <div className="relative w-12 h-12">
+                                            <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-br from-purple-500/50 to-indigo-500/50">
+                                                <div className="w-full h-full rounded-full bg-black/50 overflow-hidden flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
+                                                    {result.image ? (
+                                                        <img src={result.image} alt={result.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        result.name.charAt(0).toUpperCase()
+                                                    )}
+                                                </div>
                                             </div>
+                                            {result.activeBadgeId && BADGE_CONFIGS[result.activeBadgeId] && (
+                                                <div
+                                                    title={t(BADGE_CONFIGS[result.activeBadgeId].nameKey)}
+                                                    className={`absolute -top-1 -right-1 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[result.activeBadgeId].style} text-xs shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                                >
+                                                    {BADGE_CONFIGS[result.activeBadgeId].icon}
+                                                </div>
+                                            )}
                                         </div>
                                         <div>
                                             <div className="text-white font-semibold text-lg leading-tight group-hover:text-purple-200 transition-colors">{result.name}</div>
@@ -230,11 +241,21 @@ export default function FriendsView() {
                                     className="flex items-center gap-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                                     onClick={() => router.push(`/profile?id=${req.id}`)}
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold shrink-0 shadow-inner">
-                                        {req.image ? (
-                                            <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover" />
-                                        ) : (
-                                            req.name.charAt(0).toUpperCase()
+                                    <div className="relative w-10 h-10 shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold shadow-inner">
+                                            {req.image ? (
+                                                <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover" />
+                                            ) : (
+                                                req.name.charAt(0).toUpperCase()
+                                            )}
+                                        </div>
+                                        {req.activeBadgeId && BADGE_CONFIGS[req.activeBadgeId] && (
+                                            <div
+                                                title={t(BADGE_CONFIGS[req.activeBadgeId].nameKey)}
+                                                className={`absolute -top-1 -right-1 z-20 flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[req.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                            >
+                                                {BADGE_CONFIGS[req.activeBadgeId].icon}
+                                            </div>
                                         )}
                                     </div>
                                     <div className="min-w-0">
@@ -284,11 +305,21 @@ export default function FriendsView() {
                                     className="flex items-center gap-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                                     onClick={() => router.push(`/profile?id=${req.id}`)}
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/20 font-bold shrink-0">
-                                        {req.image ? (
-                                            <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover opacity-50" />
-                                        ) : (
-                                            req.name.charAt(0).toUpperCase()
+                                    <div className="relative w-10 h-10 shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/20 font-bold shrink-0">
+                                            {req.image ? (
+                                                <img src={req.image} alt={req.name} className="w-full h-full rounded-full object-cover opacity-50" />
+                                            ) : (
+                                                req.name.charAt(0).toUpperCase()
+                                            )}
+                                        </div>
+                                        {req.activeBadgeId && BADGE_CONFIGS[req.activeBadgeId] && (
+                                            <div
+                                                title={t(BADGE_CONFIGS[req.activeBadgeId].nameKey)}
+                                                className={`absolute -top-1 -right-1 z-20 flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[req.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20 opacity-50`}
+                                            >
+                                                {BADGE_CONFIGS[req.activeBadgeId].icon}
+                                            </div>
                                         )}
                                     </div>
                                     <div className="min-w-0">
@@ -342,6 +373,14 @@ export default function FriendsView() {
                                                 friend.name.charAt(0).toUpperCase()
                                             )}
                                         </div>
+                                        {friend.activeBadgeId && BADGE_CONFIGS[friend.activeBadgeId] && (
+                                            <div
+                                                title={t(BADGE_CONFIGS[friend.activeBadgeId].nameKey)}
+                                                className={`absolute -top-1 -right-1 z-20 flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[friend.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                            >
+                                                {BADGE_CONFIGS[friend.activeBadgeId].icon}
+                                            </div>
+                                        )}
                                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#120024] rounded-full"></div>
                                     </div>
                                     <div className="min-w-0">

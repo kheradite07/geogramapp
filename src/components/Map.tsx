@@ -11,11 +11,12 @@ import { Message } from "@/lib/store";
 import { useSession } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { useUI } from "@/context/UIContext";
-import { UserPlus, Check, Clock, Search, X } from "lucide-react";
+import { UserPlus, Check, Clock, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { m, AnimatePresence, animate, useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
 import { memo } from "react";
 import throttle from "lodash/throttle";
 import MessageDetails from "./MessageDetails";
+import { BADGE_CONFIGS } from "@/lib/badgeConfig";
 
 import VoteControls from "./VoteControls";
 import MapLayers, { FilterMode } from "./MapLayers";
@@ -246,44 +247,118 @@ AnimatedMarker.displayName = 'AnimatedMarker';
 
 
 // Helper: Collision Avoidance (Reverse Magnet)
-// Pushes a coordinate away from bubble centers if it's too close
-const calculateMagnetOffset = (
+// Represents a point on the map that pushes others away
+type Repellor = {
+    lat: number;
+    lng: number;
+    radiusLat: number;
+    radiusLng: number;
+    strength: number; // 0 to 1
+    id?: string;
+};
+
+// Pushes a coordinate away from multiple repellors with smooth force
+const applyRepulsion = (
     lat: number,
     lng: number,
-    bubbleMap: Map<string, Message>, // Optimized O(1) lookup
-    zoom: number
+    originalLat: number,
+    originalLng: number,
+    repellors: Repellor[],
+    zoom: number,
+    ignoreExactMatches: boolean = true
 ) => {
-    // VISUAL RADIUS for a bubble in degrees (approximate)
-    const zoomFactor = Math.pow(2, 13 - zoom);
-    const bubbleMarginLat = 0.006 * zoomFactor; // ~600m visual "force field"
-    const bubbleMarginLng = bubbleMarginLat / Math.cos(lat * Math.PI / 180);
+    // Zoom bypass: don't move anything at world scale to preserve geographical integrity
+    if (zoom < 8) return { lat: originalLat, lng: originalLng };
 
     let finalLat = lat;
     let finalLng = lng;
 
-    bubbleMap.forEach(bubble => {
-        // Shift repulsion center upwards because bubble is anchored at bottom
-        const centerLat = bubble.lat + (bubbleMarginLat * 0.7);
+    repellors.forEach(r => {
+        // Skip repulsion if the point is exactly at the anchor (to keep marker tip locked)
+        if (ignoreExactMatches && Math.abs(lat - r.lat) < 0.000001 && Math.abs(lng - r.lng) < 0.000001) {
+            return;
+        }
 
-        const dLat = lat - centerLat;
-        const dLng = lng - bubble.lng;
+        // Shift repulsion center upwards because bubble/marker is usually anchored at bottom
+        // Clusters/Dots use center, but Bubbles (strength=1.0) use a shifted center
+        const centerLat = r.strength > 0.8 ? r.lat + (r.radiusLat * 0.7) : r.lat;
 
-        // Normalize by margins
-        const normLat = dLat / bubbleMarginLat;
-        const normLng = dLng / bubbleMarginLng;
+        const dLat = finalLat - centerLat;
+        const dLng = finalLng - r.lng;
+
+        // Normalize by margins to check if inside the "force field"
+        const normLat = dLat / r.radiusLat;
+        const normLng = dLng / r.radiusLng;
         const distSq = normLat * normLat + normLng * normLng;
 
-        if (distSq < 1 && distSq > 0) {
+        if (distSq < 1.0 && distSq > 0.0000001) {
             const dist = Math.sqrt(distSq);
-            // Push it exactly to the nearest point on the circumference
-            const pushFactor = 1.1 / dist;
 
-            finalLat = centerLat + (dLat * pushFactor);
-            finalLng = bubble.lng + (dLng * pushFactor);
+            if (r.strength > 0.8) {
+                // HARD EXCLUSION for Bubbles: force to edge immediately
+                const hardPush = (1.05 / dist);
+                finalLat = centerLat + (dLat * hardPush);
+                finalLng = r.lng + (dLng * hardPush);
+            } else {
+                // SOFT PUSH for Clusters/Dots
+                const force = (1.1 - dist) * r.strength;
+                const pushFactor = Math.min(1.2, force * 0.4);
+                finalLat += (dLat / dist) * pushFactor * r.radiusLat;
+                finalLng += (dLng / dist) * pushFactor * r.radiusLng;
+            }
         }
     });
 
+    // --- ORIGIN ANCHORING (Max 40px shift from original average) ---
+    // 40 pixels at zoom z: 40 * (360 / (512 * 2^z)) = 28.125 / 2^z
+    const maxShift = (28.125) / Math.pow(2, zoom);
+    const dLatTotal = finalLat - originalLat;
+    const dLngTotal = finalLng - originalLng;
+    const distTotalSq = dLatTotal * dLatTotal + dLngTotal * dLngTotal;
+
+    if (distTotalSq > maxShift * maxShift) {
+        const distTotal = Math.sqrt(distTotalSq);
+        const scale = maxShift / distTotal;
+        finalLat = originalLat + dLatTotal * scale;
+        finalLng = originalLng + dLngTotal * scale;
+    }
+
+    // --- RE-ENFORCE HARD EXCLUSION (Zero Tolerance) ---
+    // Ensure anchoring didn't push us back into a bubble
+    repellors.filter(r => r.strength > 0.8).forEach(r => {
+        const centerLat = r.lat + (r.radiusLat * 0.7);
+        const dLat = finalLat - centerLat;
+        const dLng = finalLng - r.lng;
+        const normLat = dLat / r.radiusLat;
+        const normLng = dLng / r.radiusLng;
+        const distSq = normLat * normLat + normLng * normLng;
+        if (distSq < 1.0 && distSq > 0.0000001) {
+            const dist = Math.sqrt(distSq);
+            const hardPush = (1.05 / dist);
+            finalLat = centerLat + (dLat * hardPush);
+            finalLng = r.lng + (dLng * hardPush);
+        }
+    });
+
+    // CRITICAL: Prevent "Invalid LngLat" errors by clamping coordinates
+    finalLat = Math.max(-89.9999, Math.min(89.9999, finalLat));
+
+    // Normalize Longitude to [-180, 180] range
+    while (finalLng > 180) finalLng -= 360;
     return { lat: finalLat, lng: finalLng };
+};
+
+const getNotchAngle = (lat: number, lng: number, origLat: number, origLng: number) => {
+    const dy = origLat - lat;
+    const dx = origLng - lng;
+    return (Math.atan2(dy, dx) * 180 / Math.PI) * -1;
+};
+
+const getPixelDistance = (lat1: number, lng1: number, lat2: number, lng2: number, zoom: number) => {
+    const pixelsPerDegree = (512 * Math.pow(2, zoom)) / 360;
+    const dy = (lat1 - lat2) * pixelsPerDegree;
+    const dx = (lng1 - lng2) * pixelsPerDegree * Math.cos(lat1 * Math.PI / 180);
+    return Math.sqrt(dx * dx + dy * dy);
 };
 
 
@@ -328,6 +403,9 @@ const MessageMarker = ({
         setIsVisible(true);
     }, []);
 
+    const { t } = useTranslation();
+
+
     // Determine display mode:
     // 1. Rely solely on clustering logic (passed as isNearCenter)
     const shouldShowAsBubble = isNearCenter;
@@ -360,6 +438,7 @@ const MessageMarker = ({
     }
 
     const isFriends = message.visibility === 'friends';
+    const isFriendUser = currentUser?.friends?.some((f: any) => f.id === message.userId) || false;
 
     // CSS Variables for dynamic coloring
     const isPremium = message.userIsPremium; // Assumes we add this field to message/user store or API response
@@ -390,7 +469,7 @@ const MessageMarker = ({
             : isPremium
                 ? 'rgba(218, 165, 32, 0.9)'
                 : 'rgba(157, 78, 221, 0.95)',
-        '--outline': isSelected ? '3px solid rgba(255, 255, 255, 0.9)' : 'none',
+        '--outline': 'none',
         zIndex: (isFriends ? 1000 : isPremium ? 500 : 0) + (message.likes || 0) + 10,
         // Combined Scale/Opacity logic
         opacity: (isVisible && !isExiting) ? 1 : 0,
@@ -409,6 +488,47 @@ const MessageMarker = ({
             style={bubbleStyle}
         >
             <div className="relative">
+                {/* Own-post 'You' badge - Top Center */}
+                {currentUser?.id === message.userId && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '-18px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 110,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            background: 'rgba(0,0,0,0.55)',
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255,255,255,0.35)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                            whiteSpace: 'nowrap',
+                            pointerEvents: 'none'
+                        }}
+                    >
+                        <div style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                            flexShrink: 0
+                        }} />
+                        <span style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            color: 'rgba(255,255,255,0.9)',
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase'
+                        }}>
+                            {t("you_badge") || "You"}
+                        </span>
+                    </div>
+                )}
+
                 {/* Chat bubble */}
                 <div className="message-bubble">
                     {/* Clustering Badge - Top Left - Larger */}
@@ -425,9 +545,19 @@ const MessageMarker = ({
                     {!message.isAnonymous && (
                         <div className="relative z-10 w-8 h-8 shrink-0 message-avatar">
                             {/* Premium Crown - Absolute Position Top Right of Avatar */}
-                            {isPremium && (
+                            {isPremium && !message.activeBadgeId && (
                                 <div className="absolute -top-1.5 -right-1.5 z-20 bg-yellow-400 text-yellow-900 rounded-full w-4 h-4 flex items-center justify-center shadow-md animate-bounce-slow border border-white">
                                     <span className="text-[10px]">👑</span>
+                                </div>
+                            )}
+
+                            {/* Active User Badge - Absolute Position Top Right of Avatar */}
+                            {message.activeBadgeId && BADGE_CONFIGS[message.activeBadgeId] && (
+                                <div
+                                    title={t(BADGE_CONFIGS[message.activeBadgeId].nameKey)}
+                                    className={`absolute -top-2 -right-2 z-20 flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br ${BADGE_CONFIGS[message.activeBadgeId].style} text-[10px] shadow-sm transform rotate-12 ring-1 ring-white/20`}
+                                >
+                                    {BADGE_CONFIGS[message.activeBadgeId].icon}
                                 </div>
                             )}
 
@@ -435,10 +565,10 @@ const MessageMarker = ({
                                 <img
                                     src={message.userImage}
                                     alt={message.userName}
-                                    className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : 'border-white/20'}`}
+                                    className={`w-full h-full rounded-full object-cover border-2 ${isPremium ? 'border-yellow-400' : isFriendUser ? 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'border-white/20'}`}
                                 />
                             ) : (
-                                <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : 'bg-indigo-500 border-white/20'}`}>
+                                <div className={`w-full h-full rounded-full flex items-center justify-center border-2 text-xs font-bold ${isPremium ? 'bg-gradient-to-br from-yellow-500 to-orange-500 border-yellow-300' : isFriendUser ? 'bg-green-600 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-indigo-500 border-white/20'}`}>
                                     {message.userName.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -716,7 +846,7 @@ export default function MapComponent() {
 
     const { t } = useTranslation();
     const { location, error: locationError } = useLocation();
-    const { messages, voteMessage } = useMessages();
+    const { messages, voteMessage, deleteMessage } = useMessages();
     const mapRef = useRef<MapRef>(null);
     const [isMapLoaded, setIsMapLoaded] = useState(false);
 
@@ -738,9 +868,11 @@ export default function MapComponent() {
                 // POI & Place Labels
                 const poiVis = showPOI ? 'visible' : 'none';
                 if (map.getLayer('poi-label-general')) map.setLayoutProperty('poi-label-general', 'visibility', poiVis);
-                if (map.getLayer('place-city-major')) map.setLayoutProperty('place-city-major', 'visibility', poiVis);
-                if (map.getLayer('place-town')) map.setLayoutProperty('place-town', 'visibility', poiVis);
-                if (map.getLayer('place-neighborhood')) map.setLayoutProperty('place-neighborhood', 'visibility', poiVis);
+
+                // Settlement labels should stay visible for navigation
+                if (map.getLayer('place-city-major')) map.setLayoutProperty('place-city-major', 'visibility', 'visible');
+                if (map.getLayer('place-town')) map.setLayoutProperty('place-town', 'visibility', 'visible');
+                if (map.getLayer('place-neighborhood')) map.setLayoutProperty('place-neighborhood', 'visibility', 'visible');
 
                 // Road & Transit Network
                 const transitVis = showTransit ? 'visible' : 'none';
@@ -789,11 +921,12 @@ export default function MapComponent() {
     const isProgrammaticMove = useRef(false);
 
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+    const [activeGroupIndex, setActiveGroupIndex] = useState<Record<string, number>>({});
     const [locationName, setLocationName] = useState<string | null>(null);
 
     const { expirationHours, minLikesForZoom, isSimulationMode, unlimitedVotes, clusterRadius } = useConfig();
     const { user: currentUserData, handleFriendRequest } = useUser();
-    const { setMessageDetailsOpen, triggerLocationFocus } = useUI();
+    const { isMessageDetailsOpen, setMessageDetailsOpen, triggerLocationFocus, focusedLocation, setFocusedLocation } = useUI();
 
     const [filterMode, setFilterMode] = useState<FilterMode>('all');
     const [isLayersOpen, setIsLayersOpen] = useState(false);
@@ -889,13 +1022,44 @@ export default function MapComponent() {
                 center: [location.lng, location.lat],
                 zoom: 15, // Closer zoom for manual focus
                 padding: { top: 0, bottom: 0, left: 0, right: 0 }, // Reset any padding (especially from message details)
-                duration: 2000,
+                speed: 1.5,
+                curve: 1.42,
                 essential: true
             });
         }
     }, [triggerLocationFocus, location]);
 
+    // Listen for focused location trigger (from ActivePosts etc)
+    useEffect(() => {
+        if (focusedLocation && mapRef.current) {
+            console.log("📍 Focused Location FlyTo Triggered:", focusedLocation);
+
+            // Close any open message details if necessary, 
+            // but might want to keep it open if we're flying to a specific post?
+            // For now, let's keep it simple.
+
+            mapRef.current.flyTo({
+                center: [focusedLocation.lng, focusedLocation.lat],
+                zoom: focusedLocation.zoom || 15,
+                padding: { top: 0, bottom: 0, left: 0, right: 0 },
+                speed: 1.5,
+                curve: 1.42,
+                essential: true
+            });
+
+            // Reset after move
+            setFocusedLocation(null);
+        }
+    }, [focusedLocation]);
+
     // Save Map State on Move
+    const handleMoveStart = (evt: any) => {
+        // Reset carousel navigation to leader as soon as the user starts moving the map
+        if (!isProgrammaticMove.current) {
+            setActiveGroupIndex({});
+        }
+    };
+
     const handleMoveEnd = (evt: any) => {
         if (evt.target) {
             // Immediately save simple state for localStorage
@@ -989,17 +1153,20 @@ export default function MapComponent() {
         return visibleMessages;
     }, [visibleMessages, filterMode, currentUserData]);
 
-    // Smart clustering: when zoomed out, identify most-liked post in each region to show as BUBBLE
-    // This is "Phase 1" clustering - identifying the Highlights
-    const postsToShowAsBubbles = useMemo(() => {
-        const bubbleSet = new Set<string>();
+    // Cluster posts into groups for carousel navigation
+    const postGroups = useMemo(() => {
+        const groups: { leaderId: string, posts: Message[], lat: number, lng: number }[] = [];
         const processed = new Set<string>();
 
-        // Dynamic cluster radius for Bubbles
+        // Dynamic cluster radius
         const baseRadius = clusterRadius;
         const zoomFactor = Math.pow(2, 13 - viewState.zoom);
         const clusterRadiusLat = baseRadius * zoomFactor;
         const clusterRadiusLng = clusterRadiusLat / Math.cos(viewState.latitude * Math.PI / 180);
+
+        // Fixed geographical threshold for carousel grouping (approx 1.5-2 meters)
+        // This ensures only truly stacked posts remain in a carousel even at zoom 22.
+        const STRICT_OVERLAP_THRESHOLD = 0.00002;
 
         // Helper to calculate score for Bubble eligibility
         const getScore = (msg: Message) => {
@@ -1013,33 +1180,47 @@ export default function MapComponent() {
         const sortedMessages = [...filteredMessages].sort((a, b) => {
             const scoreA = getScore(a);
             const scoreB = getScore(b);
-            return scoreB - scoreA;
+            if (scoreA !== scoreB) return scoreB - scoreA;
+            // Tie-Breaker 1: Recency
+            if (a.timestamp !== b.timestamp) return b.timestamp - a.timestamp;
+            // Tie-Breaker 2: Alphabetical ID (guaranteed stable)
+            return b.id.localeCompare(a.id);
         });
 
         for (const msg of sortedMessages) {
             if (processed.has(msg.id)) continue;
 
-            // This message is a Bubble Leader
-            bubbleSet.add(msg.id);
+            const group = {
+                leaderId: msg.id,
+                posts: [msg],
+                lat: msg.lat,
+                lng: msg.lng
+            };
             processed.add(msg.id);
 
-            // Mark nearby messages as processed FOR THE PURPOSE OF BUBBLE SELECTION
-            // If a post is near a bubble, it cannot be another bubble.
-            // But it CAN be a dot or part of a dot cluster.
+            // Collect nearby messages into this group
             for (const other of filteredMessages) {
-                if (other.id === msg.id || processed.has(other.id)) continue;
+                if (processed.has(other.id)) continue;
 
                 const latDiff = Math.abs(other.lat - msg.lat);
                 const lngDiff = Math.abs(other.lng - msg.lng);
 
+                // If within cluster radius, they are hidden from bubble view
                 if (latDiff < clusterRadiusLat && lngDiff < clusterRadiusLng) {
                     processed.add(other.id);
+
+                    // BUT we only add them to the carousel if they are geographically overlapping
+                    if (latDiff < STRICT_OVERLAP_THRESHOLD && lngDiff < STRICT_OVERLAP_THRESHOLD) {
+                        group.posts.push(other);
+                    }
                 }
             }
+            groups.push(group);
         }
-
-        return bubbleSet;
+        return groups;
     }, [filteredMessages, viewState.zoom, viewState.latitude, clusterRadius]);
+
+    const postsToShowAsBubbles = useMemo(() => new Set(postGroups.map(g => g.leaderId)), [postGroups]);
 
     // O(1) Lookup Map for Magnet Logic
     const bubbleMap = useMemo(() => {
@@ -1052,17 +1233,19 @@ export default function MapComponent() {
         return map;
     }, [filteredMessages, postsToShowAsBubbles]);
 
-    // Unified list of bubbles to render (Active + Exiting)
     const bubblesToRender = useMemo(() => {
-        const currentBubbleIds = postsToShowAsBubbles;
+        const currentBubbleIds = new Set(postsToShowAsBubbles);
 
         // Calculate final list including both current and currently-exiting
         const active = filteredMessages
             .filter(msg => currentBubbleIds.has(msg.id))
             .map(msg => ({ msg, isExiting: false }));
 
+        // Track which IDs are already in the active list to prevent duplicates
+        const renderedIds = new Set(active.map(({ msg }) => msg.id));
+
         const exiting = Object.values(exitingBubbles)
-            .filter(msg => !currentBubbleIds.has(msg.id))
+            .filter(msg => !currentBubbleIds.has(msg.id) && !renderedIds.has(msg.id))
             .map(msg => ({ msg, isExiting: true }));
 
         return [...active, ...exiting];
@@ -1126,37 +1309,61 @@ export default function MapComponent() {
 
     // Remove the old useEffect-based exiting logic
 
+    // Remove obsolete spiderfy transition effects
+
     // Identify Dots (Messages that are NOT Bubbles)
     const visibleDots = useMemo(() => {
         return filteredMessages.filter(msg => !postsToShowAsBubbles.has(msg.id));
     }, [filteredMessages, postsToShowAsBubbles]);
 
 
+    // Repellors derived from active Bubbles (Level 1 Priority)
+    const bubbleRepellors = useMemo(() => {
+        const zoomFactor = Math.pow(2, 13 - viewState.zoom);
+        const radiusLat = 0.006 * zoomFactor;
+
+        const reps: Repellor[] = [];
+        bubbleMap.forEach(bubble => {
+            const lat = bubble.lat;
+            const rLat = radiusLat * 1.1; // 10% safety buffer for bubble "hard shell"
+            reps.push({
+                lat: bubble.lat,
+                lng: bubble.lng,
+                radiusLat: rLat,
+                radiusLng: rLat / Math.cos(lat * Math.PI / 180),
+                strength: 1.0,
+                id: bubble.id
+            });
+        });
+        return reps;
+    }, [bubbleMap, viewState.zoom]);
+
     // Secondary Clustering: Cluster the Dots
-    // "Phase 2" clustering - grouping the Lowlights
-    const dotClusters = useMemo(() => {
-        const clusters: { id: string, lat: number, lng: number, count: number, ids: string[] }[] = [];
+    const dotClustersResult = useMemo(() => {
+        const clusters: { id: string, lat: number, lng: number, originalLat: number, originalLng: number, count: number, ids: string[], messages: Message[] }[] = [];
         const processed = new Set<string>();
 
-        // Dot clustering radius can be slightly smaller or same as bubble radius
         const baseRadius = clusterRadius * 0.8;
         const zoomFactor = Math.pow(2, 13 - viewState.zoom);
         const clusterRadiusLat = baseRadius * zoomFactor;
         const clusterRadiusLng = baseRadius * zoomFactor / Math.cos(viewState.latitude * Math.PI / 180);
 
-        // Sort by ID for deterministic clustering order
-        // This prevents clusters from slightly shifting if the array order changes
         const sortedDots = [...visibleDots].sort((a, b) => a.id.localeCompare(b.id));
+
+        const clusterRepellors: Repellor[] = [];
 
         for (const msg of sortedDots) {
             if (processed.has(msg.id)) continue;
 
             const cluster = {
-                id: msg.id, // Use the leader's ID as the stable cluster ID
+                id: msg.id,
                 lat: msg.lat,
                 lng: msg.lng,
+                originalLat: msg.lat,
+                originalLng: msg.lng,
                 count: 1,
-                ids: [msg.id]
+                ids: [msg.id],
+                messages: [msg]
             };
             processed.add(msg.id);
 
@@ -1169,65 +1376,120 @@ export default function MapComponent() {
                 if (latDiff < clusterRadiusLat && lngDiff < clusterRadiusLng) {
                     cluster.count++;
                     cluster.ids.push(other.id);
-                    // Average the location? Or keep leader location?
-                    // Averaging looks smoother
-                    cluster.lat = (cluster.lat * (cluster.count - 1) + other.lat) / cluster.count;
-                    cluster.lng = (cluster.lng * (cluster.count - 1) + other.lng) / cluster.count;
-
+                    cluster.messages.push(other);
+                    cluster.originalLat = (cluster.originalLat * (cluster.count - 1) + other.lat) / cluster.count;
+                    cluster.originalLng = (cluster.originalLng * (cluster.count - 1) + other.lng) / cluster.count;
+                    cluster.lat = cluster.originalLat;
+                    cluster.lng = cluster.originalLng;
                     processed.add(other.id);
                 }
             }
 
             if (cluster.count > 1) {
-                // APPLY MAGNET OFFSET TO CLUSTER
-                const offset = calculateMagnetOffset(
+                // APPLY REPULSION TO CLUSTER (From Bubbles + previous Clusters)
+                const finalPos = applyRepulsion(
                     cluster.lat,
                     cluster.lng,
-                    bubbleMap,
-                    viewState.zoom
+                    cluster.originalLat,
+                    cluster.originalLng,
+                    [...bubbleRepellors, ...clusterRepellors],
+                    viewState.zoom,
+                    true // Lock to marker tip if exactly overlapping
                 );
-                cluster.lat = offset.lat;
-                cluster.lng = offset.lng;
+                cluster.lat = finalPos.lat;
+                cluster.lng = finalPos.lng;
+
+                // Add this cluster as a repellor for subsequent elements
+                clusterRepellors.push({
+                    lat: cluster.lat,
+                    lng: cluster.lng,
+                    radiusLat: clusterRadiusLat * 0.6, // Smaller collision zone for clusters
+                    radiusLng: clusterRadiusLng * 0.6,
+                    strength: 0.4, // Lower strength to prevent aggressive chain reactions
+                    id: cluster.id
+                });
 
                 clusters.push(cluster);
             }
         }
-        return clusters;
-    }, [visibleDots, viewState.zoom, viewState.latitude, clusterRadius, bubbleMap]);
+        return { clusters, clusterRepellors };
+    }, [visibleDots, viewState.zoom, viewState.latitude, clusterRadius, bubbleRepellors]);
+
+    const activeDotClusters = useMemo(() => dotClustersResult.clusters, [dotClustersResult]);
+    const clusterRepellors = useMemo(() => dotClustersResult.clusterRepellors, [dotClustersResult]);
 
     // Remaining Single Dots (Not in any dot cluster)
     const clusteredDotIds = useMemo(() => {
         const ids = new Set<string>();
-        dotClusters.forEach(c => c.ids.forEach(id => ids.add(id)));
+        activeDotClusters.forEach(c => c.ids.forEach(id => ids.add(id)));
         return ids;
-    }, [dotClusters]);
+    }, [activeDotClusters]);
 
-    // Prepare Dots GeoJSON for WebGL Layer
-    const dotsGeoJson = useMemo(() => {
+    // Prepare Dots GeoJSON for WebGL Layer vs React Markers
+    const dotsProcessingResult = useMemo(() => {
         const unclusteredDots = visibleDots.filter(msg => !clusteredDotIds.has(msg.id));
-        return {
-            type: 'FeatureCollection',
-            features: unclusteredDots.map(msg => {
-                const offset = calculateMagnetOffset(msg.lat, msg.lng, bubbleMap, viewState.zoom);
-                return {
+        const stableFeatures: any[] = [];
+        const displaced: any[] = [];
+
+        unclusteredDots.forEach(msg => {
+            // Pushed by Bubbles AND Clusters (Level 3 Priority)
+            const finalPos = applyRepulsion(
+                msg.lat,
+                msg.lng,
+                msg.lat,
+                msg.lng,
+                [...bubbleRepellors, ...clusterRepellors],
+                viewState.zoom,
+                true
+            );
+
+            const pixelDist = getPixelDistance(finalPos.lat, finalPos.lng, msg.lat, msg.lng, viewState.zoom);
+
+            if (pixelDist > 2) {
+                // DISPLACED: Render as React Marker with Notch
+                displaced.push({
+                    ...msg,
+                    lat: finalPos.lat,
+                    lng: finalPos.lng,
+                    originalLat: msg.lat,
+                    originalLng: msg.lng
+                });
+            } else {
+                // STABLE: Render as WebGL Point (Performance)
+                stableFeatures.push({
                     type: 'Feature',
                     geometry: {
                         type: 'Point',
-                        coordinates: [offset.lng, offset.lat]
+                        coordinates: [finalPos.lng, finalPos.lat]
                     },
                     properties: {
                         ...msg,
                         id: msg.id,
                         visibility: msg.visibility,
+                        isDot: true,
+                        originalLat: msg.lat,
+                        originalLng: msg.lng
                     }
-                };
-            })
+                });
+            }
+        });
+
+        return {
+            dotsGeoJson: {
+                type: 'FeatureCollection',
+                features: stableFeatures
+            },
+            displacedDots: displaced
         };
-    }, [visibleDots, clusteredDotIds, bubbleMap, viewState.zoom]);
+    }, [visibleDots, clusteredDotIds, bubbleRepellors, clusterRepellors, viewState.zoom]);
+
+    const dotsGeoJson = useMemo(() => dotsProcessingResult.dotsGeoJson, [dotsProcessingResult]);
+    const displacedDots = useMemo(() => dotsProcessingResult.displacedDots, [dotsProcessingResult]);
 
     const dotLayerStyle: any = {
         id: 'dot-layer',
         type: 'circle',
+        filter: ['==', ['get', 'isDot'], true],
         paint: {
             'circle-color': [
                 'match',
@@ -1347,27 +1609,30 @@ export default function MapComponent() {
     };
 
     // Fly to marker location on click and select message
-    const handleMarkerClick = (msg: Message) => {
-        // Always set the message and open details, even if already selected
+    const handleMarkerClick = (msg: Message, fromDot: boolean = false) => {
         setSelectedMessage(msg);
-        setMessageDetailsOpen(true);
-        setLocationName(null); // Reset location name while fetching
+        setLocationName(null);
+
+        if (!fromDot) {
+            setMessageDetailsOpen(true);
+        } else {
+            setMessageDetailsOpen(false);
+        }
 
         if (mapRef.current) {
-            // Only fly to location if it's a different message
-            if (selectedMessage?.id !== msg.id) {
-                isProgrammaticMove.current = true;
-                mapRef.current.flyTo({
-                    center: [msg.lng, msg.lat],
-                    zoom: 16,
-                    padding: { top: 450 },
-                    duration: 600,
-                    essential: true
-                });
-                setTimeout(() => {
-                    isProgrammaticMove.current = false;
-                }, 800); // Longer timeout than flyTo duration to prevent premature closing
-            }
+            const targetZoom = viewState.zoom > 16 ? viewState.zoom : 16;
+            isProgrammaticMove.current = true;
+            mapRef.current.flyTo({
+                center: [msg.lng, msg.lat],
+                zoom: targetZoom,
+                padding: { top: fromDot ? 100 : 450, bottom: 0, left: 0, right: 0 },
+                speed: 1.5,
+                curve: 1.42,
+                essential: true
+            });
+            setTimeout(() => {
+                isProgrammaticMove.current = false;
+            }, 800);
         }
     };
 
@@ -1708,8 +1973,14 @@ export default function MapComponent() {
                     const isUserInteraction = originalEvent &&
                         ['mousedown', 'mouseup', 'mousemove', 'touchstart', 'touchend', 'touchmove', 'wheel', 'keydown'].includes(originalEvent.type);
 
-                    if (isUserInteraction && !isProgrammaticMove.current && selectedFriend) {
-                        setSelectedFriend(null);
+                    if (isUserInteraction && !isProgrammaticMove.current) {
+                        // Reset carousel navigation
+                        setActiveGroupIndex({});
+
+                        // Close friend popup
+                        if (selectedFriend) {
+                            setSelectedFriend(null);
+                        }
                     }
 
                     if (isUserInteraction && !isProgrammaticMove.current && selectedMessage) {
@@ -1842,7 +2113,8 @@ export default function MapComponent() {
                                                     mapRef.current?.flyTo({
                                                         center: [person.lastLng, person.lastLat + latOffset],
                                                         zoom: currentZoom,
-                                                        duration: 800
+                                                        speed: 1.5,
+                                                        curve: 1.42
                                                     });
                                                     setTimeout(() => {
                                                         isProgrammaticMove.current = false;
@@ -1863,7 +2135,8 @@ export default function MapComponent() {
                                                 mapRef.current.flyTo({
                                                     center: [flockInfo.lng, flockInfo.lat],
                                                     zoom: Math.max(viewState.zoom + 2, THRESHOLD_ZOOM_DECLUSTER),
-                                                    duration: 1000
+                                                    speed: 1.5,
+                                                    curve: 1.42
                                                 });
                                                 setTimeout(() => {
                                                     isProgrammaticMove.current = false;
@@ -1888,7 +2161,8 @@ export default function MapComponent() {
                                             mapRef.current?.flyTo({
                                                 center: [person.lastLng, person.lastLat + latOffset],
                                                 zoom: zoom,
-                                                duration: 1000
+                                                speed: 1.5,
+                                                curve: 1.42
                                             });
                                             setTimeout(() => {
                                                 isProgrammaticMove.current = false;
@@ -1984,7 +2258,7 @@ export default function MapComponent() {
                     )}
                 </AnimatePresence>
 
-                {/* 3. DOTS: Single lowlight posts (WebGL Optimized) */}
+                {/* 3a. STABLE DOTS: Single lowlight posts (WebGL Optimized) */}
                 <Source id="dots-source" type="geojson" data={dotsGeoJson as any}>
                     <Layer
                         {...dotLayerStyle}
@@ -1992,15 +2266,78 @@ export default function MapComponent() {
                             const features = e.features;
                             if (features && features.length > 0) {
                                 const msg = features[0].properties as any;
-                                handleMarkerClick(msg);
+                                handleMarkerClick(msg, true);
                             }
                         }}
                     />
                 </Source>
 
+                {/* 3b. DISPLACED DOTS: Active Markers with SVG Notches */}
+                <AnimatePresence mode="popLayout">
+                    {displacedDots.map((dot) => (
+                        <AnimatedMarker
+                            key={`displaced-dot-${dot.id}`}
+                            latitude={dot.lat}
+                            longitude={dot.lng}
+                            anchor="center"
+                            zIndex={15}
+                        >
+                            <div className="relative">
+                                {/* Displacement Notch (Points back to original location) */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: `translate(-50%, -50%) rotate(${getNotchAngle(dot.lat, dot.lng, dot.originalLat, dot.originalLng)}deg)`,
+                                        width: '40px',
+                                        height: '40px',
+                                        pointerEvents: 'none',
+                                        zIndex: -1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ overflow: 'visible' }}>
+                                        {/* Dashed line to source */}
+                                        <line
+                                            x1="20" y1="20"
+                                            x2="40" y2="20"
+                                            stroke="white"
+                                            strokeWidth="1.5"
+                                            strokeDasharray="3,2"
+                                            opacity="0.5"
+                                        />
+                                        {/* Arrow head at source end */}
+                                        <path
+                                            d="M 40 20 L 36 18 M 40 20 L 36 22"
+                                            stroke="white"
+                                            strokeWidth="1.5"
+                                            opacity="0.7"
+                                        />
+                                    </svg>
+                                </div>
+
+                                {/* The Dot itself */}
+                                <div
+                                    onClick={() => handleMarkerClick(dot, true)}
+                                    className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.4)] cursor-pointer hover:scale-150 transition-all"
+                                    style={{
+                                        background: dot.visibility === 'friends'
+                                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                            : 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)'
+                                    }}
+                                />
+                            </div>
+                        </AnimatedMarker>
+                    ))}
+                </AnimatePresence>
+
                 {/* 2. CLUSTERS: Groups of dots (lowlights) */}
                 <AnimatePresence mode="popLayout">
-                    {dotClusters.map((cluster) => (
+                    {activeDotClusters.map((cluster) => (
+                        // Cluster rendering (simplified, no spiderfy)
                         <AnimatedMarker
                             key={`cluster-${cluster.id}`}
                             latitude={cluster.lat}
@@ -2008,18 +2345,104 @@ export default function MapComponent() {
                             anchor="center"
                             zIndex={20}
                         >
-                            <div
-                                className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-white/80 shadow-[0_0_15px_rgba(124,58,237,0.5)] text-white font-bold text-sm cursor-pointer hover:scale-110 transition-transform"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    mapRef.current?.flyTo({
-                                        center: [cluster.lng, cluster.lat],
-                                        zoom: viewState.zoom + 2,
-                                        duration: 800
-                                    });
-                                }}
-                            >
-                                {cluster.count}
+                            <div className="relative">
+                                {/* Displacement Notch (Points back to original location) */}
+                                {getPixelDistance(cluster.lat, cluster.lng, cluster.originalLat, cluster.originalLng, viewState.zoom) > 2 && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: '50%',
+                                            transform: `translate(-50%, -50%) rotate(${getNotchAngle(cluster.lat, cluster.lng, cluster.originalLat, cluster.originalLng)}deg)`,
+                                            width: '40px',
+                                            height: '40px',
+                                            pointerEvents: 'none',
+                                            zIndex: -1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        <svg width="40" height="40" viewBox="0 0 40 40" style={{ overflow: 'visible' }}>
+                                            {/* Dashed line to source */}
+                                            <line
+                                                x1="20" y1="20"
+                                                x2="40" y2="20"
+                                                stroke="white"
+                                                strokeWidth="2"
+                                                strokeDasharray="3,2"
+                                                opacity="0.5"
+                                            />
+                                            {/* Arrow head at source end */}
+                                            <path
+                                                d="M 40 20 L 35 17 M 40 20 L 35 23"
+                                                stroke="white"
+                                                strokeWidth="2"
+                                                opacity="0.7"
+                                            />
+                                        </svg>
+                                    </div>
+                                )}
+
+                                <div
+                                    className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 border-[1.5px] border-white/80 shadow-[0_0_15px_rgba(124,58,237,0.5)] text-white font-bold text-sm cursor-pointer hover:scale-110 transition-transform"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const children = cluster.messages || [];
+                                        if (children.length === 0) return;
+
+                                        if (mapRef.current) {
+                                            isProgrammaticMove.current = true;
+
+                                            // 1. Calculate spread (RMS Distance from weighted center)
+                                            let sumSqDistLat = 0;
+                                            let sumSqDistLng = 0;
+
+                                            children.forEach(dot => {
+                                                const dLat = dot.lat - cluster.originalLat;
+                                                const dLng = dot.lng - cluster.originalLng;
+                                                sumSqDistLat += dLat * dLat;
+                                                sumSqDistLng += dLng * dLng;
+                                            });
+
+                                            const rmsLat = Math.sqrt(sumSqDistLat / children.length);
+                                            const rmsLng = Math.sqrt(sumSqDistLng / children.length);
+
+                                            // 2. Define "Core Population" bounds (WeightedCenter ± 1.5 * Spread)
+                                            // Add tiny epsilon to avoid zero-size bounds
+                                            const spreadFactor = 1.5;
+                                            const marginLat = Math.max(rmsLat * spreadFactor, 0.0001);
+                                            const marginLng = Math.max(rmsLng * spreadFactor, 0.0001);
+
+                                            const coreBounds: [[number, number], [number, number]] = [
+                                                [cluster.originalLng - marginLng, cluster.originalLat - marginLat],
+                                                [cluster.originalLng + marginLng, cluster.originalLat + marginLat]
+                                            ];
+
+                                            // 3. Find camera settings to fit the core population
+                                            const camera = mapRef.current.cameraForBounds(coreBounds, { padding: 60 });
+
+                                            // 4. Stepped Zoom Delta: Limit how much we jump in one click (Max +3.0)
+                                            // This prevents "teleporting" from zoom 2 directly into a deep city view
+                                            const MAX_ZOOM_JUMP = 3.0;
+                                            const targetZoom = camera?.zoom || (viewState.zoom + 2);
+                                            const cappedZoom = Math.min(targetZoom, viewState.zoom + MAX_ZOOM_JUMP);
+
+                                            // 5. Fly specifically to the weighted center
+                                            mapRef.current.flyTo({
+                                                center: [cluster.originalLng, cluster.originalLat],
+                                                zoom: Math.min(cappedZoom, 18),
+                                                speed: 1.5,
+                                                curve: 1.42,
+                                                essential: true
+                                            });
+
+                                            setTimeout(() => { isProgrammaticMove.current = false; }, 1200);
+                                        }
+                                    }}
+                                >
+                                    +{cluster.count}
+                                </div>
                             </div>
                         </AnimatedMarker>
                     ))}
@@ -2032,39 +2455,78 @@ export default function MapComponent() {
                         const isFriends = msg.visibility === 'friends';
                         const zIndex = (isFriends ? 1000 : isPremium ? 500 : 100) + (msg.likes || 0);
 
-                        // Truly stable layoutId
-                        const lat = msg.lat;
-                        const lng = msg.lng;
-                        const bubbleLayoutId = `bubble-${lat?.toFixed(6)}-${lng?.toFixed(6)}`;
+                        // Find the group for this bubble
+                        const group = postGroups.find(g => g.leaderId === msg.id);
+                        const groupPosts = group?.posts || [msg];
+                        const currentIndex = activeGroupIndex[msg.id] || 0;
+                        const displayMsg = groupPosts[currentIndex % groupPosts.length];
 
+                        const bubbleLayoutId = `bubble-${msg.lat?.toFixed(6)}-${msg.lng?.toFixed(6)}`;
 
+                        const handlePrev = (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setActiveGroupIndex(prev => ({
+                                ...prev,
+                                [msg.id]: (currentIndex - 1 + groupPosts.length) % groupPosts.length
+                            }));
+                        };
+
+                        const handleNext = (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setActiveGroupIndex(prev => ({
+                                ...prev,
+                                [msg.id]: (currentIndex + 1) % groupPosts.length
+                            }));
+                        };
 
                         return (
                             <AnimatedMarker
-                                key={bubbleLayoutId}
+                                key={msg.id}
                                 latitude={msg.lat}
                                 longitude={msg.lng}
                                 anchor="bottom"
                                 zIndex={zIndex}
                                 layoutId={bubbleLayoutId}
                             >
-                                {/* Only show marker if it's NOT the selected one (expanding) */}
-                                {selectedMessage?.id !== msg.id && (
-                                    <div
-                                        className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}
-                                    >
-                                        <MessageMarker
-                                            message={msg}
-                                            onVote={handleVote}
-                                            onClick={() => handleMarkerClick(msg)}
-                                            currentUser={currentUserData}
-                                            unlimitedVotes={unlimitedVotes}
-                                            isSelected={selectedMessage?.id === msg.id}
-                                            isNearCenter={true}
-                                            showActions={!isExiting && markersNearCenter.has(msg.id)}
-                                            zoom={viewState.zoom}
-                                            isExiting={isExiting}
-                                        />
+                                {!(selectedMessage?.id === msg.id && isMessageDetailsOpen) && (
+                                    <div className="relative group/bubble flex items-center justify-center">
+                                        {/* Carousel Arrows */}
+                                        {groupPosts.length > 1 && !isExiting && (
+                                            <>
+                                                <button
+                                                    onClick={handlePrev}
+                                                    className={`absolute -left-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white transition-all hover:bg-white/40 active:scale-95 shadow-lg z-50 ${viewState.zoom > 16 ? 'opacity-100' : 'opacity-0 group-hover/bubble:opacity-100'}`}
+                                                >
+                                                    <ChevronLeft size={18} strokeWidth={2.5} />
+                                                </button>
+                                                <button
+                                                    onClick={handleNext}
+                                                    className={`absolute -right-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white transition-all hover:bg-white/40 active:scale-95 shadow-lg z-50 ${viewState.zoom > 16 ? 'opacity-100' : 'opacity-0 group-hover/bubble:opacity-100'}`}
+                                                >
+                                                    <ChevronRight size={18} strokeWidth={2.5} />
+                                                </button>
+
+                                                {/* Page indicator */}
+                                                <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-1 transition-opacity whitespace-nowrap px-2 py-0.5 rounded-full bg-purple-600/90 backdrop-blur-md text-[10px] text-white font-bold border border-white/20 shadow-lg pointer-events-none lowercase ${viewState.zoom > 16 ? 'opacity-100' : 'opacity-0 group-hover/bubble:opacity-100'}`}>
+                                                    {currentIndex + 1} / {groupPosts.length}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <div className={`transition-all duration-300 ${selectedFriend ? 'blur-sm opacity-50' : ''}`}>
+                                            <MessageMarker
+                                                message={displayMsg}
+                                                onVote={handleVote}
+                                                onClick={() => handleMarkerClick(displayMsg)}
+                                                currentUser={currentUserData}
+                                                unlimitedVotes={unlimitedVotes}
+                                                isSelected={selectedMessage?.id === displayMsg.id}
+                                                isNearCenter={true}
+                                                showActions={!isExiting && markersNearCenter.has(msg.id)}
+                                                zoom={viewState.zoom}
+                                                isExiting={isExiting}
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </AnimatedMarker>
@@ -2073,7 +2535,7 @@ export default function MapComponent() {
                 </AnimatePresence>
 
                 {/* Message Details Overlay - Expanded from Bubble AS A MARKER */}
-                {selectedMessage && (
+                {selectedMessage && isMessageDetailsOpen && (
                     <Marker
                         latitude={selectedMessage.lat}
                         longitude={selectedMessage.lng}
@@ -2093,6 +2555,14 @@ export default function MapComponent() {
                             currentUser={session}
                             unlimitedVotes={unlimitedVotes}
                             locationName={locationName}
+                            onDelete={async (id) => {
+                                const result = await deleteMessage(id);
+                                if (result?.success) {
+                                    setSelectedMessage(null);
+                                    setMessageDetailsOpen(false);
+                                }
+                                return result || { success: false };
+                            }}
                         />
                     </Marker>
                 )}
