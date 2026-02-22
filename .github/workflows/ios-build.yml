@@ -32,6 +32,11 @@ jobs:
     - name: Capacitor Sync
       run: npx cap sync ios
 
+    - name: Link Custom Plugins in Xcode
+      run: |
+        sudo gem install xcodeproj
+        ruby add_files_to_xcode.rb
+
     - name: Tar iOS Project with Plugin Sources
       run: tar -czf ios-build.tar.gz ios/ node_modules/@capacitor/ node_modules/@codetrix-studio/
 

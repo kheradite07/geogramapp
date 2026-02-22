@@ -215,26 +215,53 @@ const MessageDetails = memo(({
 
             // 2. Platform Specific Handling
             if (Capacitor.isNativePlatform()) {
+                const currentPlatform = Capacitor.getPlatform();
+
                 if (platform === 'instagram') {
-                    // Native Instagram Story
-                    try {
-                        await InstagramStories.shareToStory({
-                            base64: dataUrl,
-                            attributionLink: "https://geogramapp.vercel.app"
-                        });
-                        console.log("Instagram share initiated");
-                    } catch (err: any) {
-                        console.error("Instagram Native Failed:", err);
-                        genericShare(dataUrl);
+                    if (currentPlatform === 'ios') {
+                        // Explicit iOS Instagram Story Share (Strictly Isolated)
+                        try {
+                            await InstagramStories.shareToStory({
+                                base64: dataUrl,
+                                attributionLink: "https://geogramapp.vercel.app"
+                            });
+                            console.log("iOS Instagram share initiated");
+                        } catch (err: any) {
+                            console.error("iOS Instagram Native Failed:", err);
+                            genericShare(dataUrl);
+                        }
+                    } else if (currentPlatform === 'android') {
+                        // Native Android Instagram Story Share (Untouched)
+                        try {
+                            await InstagramStories.shareToStory({
+                                base64: dataUrl,
+                                attributionLink: "https://geogramapp.vercel.app"
+                            });
+                            console.log("Android Instagram share initiated");
+                        } catch (err: any) {
+                            console.error("Android Instagram Native Failed:", err);
+                            genericShare(dataUrl);
+                        }
                     }
                 } else if (platform === 'whatsapp') {
-                    // Native WhatsApp (Action Send)
-                    try {
-                        await InstagramStories.shareToWhatsApp({ base64: dataUrl });
-                        console.log("WhatsApp share initiated");
-                    } catch (err: any) {
-                        console.error("WhatsApp Native Failed:", err);
-                        genericShare(dataUrl);
+                    if (currentPlatform === 'ios') {
+                        // Explicit iOS WhatsApp Share
+                        try {
+                            await InstagramStories.shareToWhatsApp({ base64: dataUrl });
+                            console.log("iOS WhatsApp share initiated");
+                        } catch (err: any) {
+                            console.error("iOS WhatsApp Native Failed:", err);
+                            genericShare(dataUrl);
+                        }
+                    } else if (currentPlatform === 'android') {
+                        // Native Android WhatsApp (Action Send) (Untouched)
+                        try {
+                            await InstagramStories.shareToWhatsApp({ base64: dataUrl });
+                            console.log("Android WhatsApp share initiated");
+                        } catch (err: any) {
+                            console.error("Android WhatsApp Native Failed:", err);
+                            genericShare(dataUrl);
+                        }
                     }
                 } else {
                     // System / Fallback
