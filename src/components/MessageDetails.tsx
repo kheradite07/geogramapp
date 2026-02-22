@@ -228,6 +228,7 @@ const MessageDetails = memo(({
                             console.log("iOS Instagram share initiated");
                         } catch (err: any) {
                             console.error("iOS Instagram Native Failed:", err);
+                            alert("Native IG Error: " + (err?.message || JSON.stringify(err)));
                             genericShare(dataUrl);
                         }
                     } else if (currentPlatform === 'android') {
@@ -251,6 +252,7 @@ const MessageDetails = memo(({
                             console.log("iOS WhatsApp share initiated");
                         } catch (err: any) {
                             console.error("iOS WhatsApp Native Failed:", err);
+                            alert("Native WA Error: " + (err?.message || JSON.stringify(err)));
                             genericShare(dataUrl);
                         }
                     } else if (currentPlatform === 'android') {
