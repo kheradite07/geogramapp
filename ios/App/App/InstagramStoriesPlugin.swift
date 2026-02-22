@@ -26,7 +26,8 @@ public class InstagramStoriesPlugin: CAPPlugin {
         DispatchQueue.main.async {
             if UIApplication.shared.canOpenURL(urlScheme) {
                 var pasteboardItems: [String: Any] = [
-                    "com.instagram.sharedSticker.backgroundImage": imageData
+                    "com.instagram.sharedSticker.backgroundImage": imageData,
+                    "com.instagram.sharedSticker.appID": "962534345263628"
                 ]
 
                 if let attributionLink = call.getString("attributionLink") {
@@ -66,13 +67,13 @@ public class InstagramStoriesPlugin: CAPPlugin {
         DispatchQueue.main.async {
             if UIApplication.shared.canOpenURL(whatsappURL) {
                 let tempDir = FileManager.default.temporaryDirectory
-                let fileURL = tempDir.appendingPathComponent("whatsapp_share.wai")
+                let fileURL = tempDir.appendingPathComponent("whatsapp_share.png")
 
                 do {
                     try imageData.write(to: fileURL)
 
                     self.documentController = UIDocumentInteractionController(url: fileURL)
-                    self.documentController?.uti = "net.whatsapp.image"
+                    self.documentController?.uti = "public.png"
 
                     if let vc = self.bridge?.viewController {
                         let presented = self.documentController?.presentOpenInMenu(from: vc.view.bounds, in: vc.view, animated: true) ?? false
