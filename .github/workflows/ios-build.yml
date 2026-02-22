@@ -32,11 +32,8 @@ jobs:
     - name: Capacitor Sync
       run: npx cap sync ios
 
-    - name: Zip iOS Project
-      run: |
-        zip -r ios-build.zip ios/
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ios-build
-        path: ios-build.zip
+        path: ios/
