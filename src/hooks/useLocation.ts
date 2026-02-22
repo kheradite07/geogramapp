@@ -21,17 +21,16 @@ export function useLocation() {
 
         const requestLocation = async () => {
             try {
-                // Determine if we're on native mobile (iOS/Android)
-                let isNative = false;
+                let platform = 'web';
                 try {
                     const { Capacitor } = await import("@capacitor/core");
-                    isNative = Capacitor.isNativePlatform();
+                    platform = Capacitor.getPlatform();
                 } catch (e) { }
 
-                if (isNative) {
+                if (platform === 'ios') {
+                    // --- iOS MUST USE CAPACITOR NATIVE ---
                     const { Geolocation } = await import("@capacitor/geolocation");
 
-                    // 1. Request permissions natively
                     let permStatus = await Geolocation.checkPermissions();
                     if (permStatus.location !== 'granted') {
                         permStatus = await Geolocation.requestPermissions();
@@ -40,7 +39,6 @@ export function useLocation() {
                         throw new Error("Location permission denied by user.");
                     }
 
-                    // 2. Try High Accuracy (GPS) natively
                     try {
                         const position = await Geolocation.getCurrentPosition({
                             enableHighAccuracy: true,
@@ -51,20 +49,22 @@ export function useLocation() {
                             setState({ location: { lat: position.coords.latitude, lng: position.coords.longitude }, error: null, loading: false });
                         }
                     } catch (highAccErr: any) {
-                        console.warn("High accuracy native location failed, trying low accuracy...", highAccErr);
-                        // 3. Fallback to Low Accuracy (Network) natively if GPS times out
-                        const fallbackPos = await Geolocation.getCurrentPosition({
-                            enableHighAccuracy: false,
-                            timeout: 15000,
-                            maximumAge: 300000
-                        });
-                        if (isMounted) {
-                            setState({ location: { lat: fallbackPos.coords.latitude, lng: fallbackPos.coords.longitude }, error: null, loading: false });
+                        try {
+                            const fallbackPos = await Geolocation.getCurrentPosition({
+                                enableHighAccuracy: false,
+                                timeout: 15000,
+                                maximumAge: 300000
+                            });
+                            if (isMounted) {
+                                setState({ location: { lat: fallbackPos.coords.latitude, lng: fallbackPos.coords.longitude }, error: null, loading: false });
+                            }
+                        } catch (fErr: any) {
+                            if (isMounted) setState((s) => ({ ...s, error: fErr.message || "iOS Location fallback failed", loading: false }));
                         }
                     }
 
                 } else {
-                    // WEB FALLBACK
+                    // --- ANDROID & WEB CAN USE NAVIGATOR ---
                     if (!navigator.geolocation) {
                         throw new Error("Geolocation not supported by this browser.");
                     }
@@ -76,14 +76,13 @@ export function useLocation() {
                             }
                         },
                         (error) => {
-                            console.error("Geolocation error:", error);
                             if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
                                 navigator.geolocation.getCurrentPosition(
                                     (fallbackPos) => {
                                         if (isMounted) setState({ location: { lat: fallbackPos.coords.latitude, lng: fallbackPos.coords.longitude }, error: null, loading: false });
                                     },
                                     (fallbackErr) => {
-                                        if (isMounted) setState((s) => ({ ...s, error: fallbackErr.message || "Location error", loading: false }));
+                                        if (isMounted) setState((s) => ({ ...s, error: fallbackErr.message || "Android Location fallback failed", loading: false }));
                                     },
                                     { enableHighAccuracy: false, maximumAge: 300000, timeout: 15000 }
                                 );

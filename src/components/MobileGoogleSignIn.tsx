@@ -32,14 +32,7 @@ export default function MobileGoogleSignIn() {
             // Dynamically import the plugin to avoid build errors
             import("@codetrix-studio/capacitor-google-auth").then(async module => {
                 setGoogleAuth(module.GoogleAuth);
-                const { Capacitor } = await import("@capacitor/core");
-                module.GoogleAuth.initialize({
-                    clientId: Capacitor.getPlatform() === 'ios'
-                        ? '10634920795-d2h2ehou4mgf1249quh8k109nfr3vkje.apps.googleusercontent.com'
-                        : '10634920795-g7kg310rkho5gnlt7hjrcet8fqa8d3rh.apps.googleusercontent.com',
-                    scopes: ['profile', 'email'],
-                    grantOfflineAccess: true
-                });
+                module.GoogleAuth.initialize();
             }).catch(err => {
                 console.error("Failed to load Google Auth plugin", err);
             });
