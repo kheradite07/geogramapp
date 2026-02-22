@@ -5,7 +5,7 @@ project = Xcodeproj::Project.open(project_path)
 app_target = project.targets.find { |target| target.name == 'App' }
 app_group = project.main_group.find_subpath(File.join('App'), true)
 
-file_names = ['InstagramStoriesPlugin.swift', 'InstagramStoriesPlugin.m']
+file_names = ['InstagramStoriesPlugin.swift', 'InstagramStoriesPlugin.m', 'MyViewController.swift']
 
 file_names.each do |file_name|
   # 1. Add reference to the group if it doesn't exist
