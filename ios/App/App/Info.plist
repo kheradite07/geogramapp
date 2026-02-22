@@ -49,5 +49,18 @@
 	<string>We need your location to show you on the map and find friends nearby.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>We need your location to show you on the map and find friends nearby.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>REVERSED_CLIENT_ID</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.10634920795-d2h2ehou4mgf1249quh8k109nfr3vkje</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
