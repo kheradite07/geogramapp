@@ -8,11 +8,7 @@ import Map from "react-map-gl/mapbox"; // Import Map
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { useTranslation } from "@/context/LocalizationContext";
 
-interface InstagramStoriesPlugin {
-    shareToStory(options: { base64: string; attributionLink?: string }): Promise<void>;
-    shareToWhatsApp(options: { base64: string }): Promise<void>;
-}
-const InstagramStories = registerPlugin<InstagramStoriesPlugin>('InstagramStories');
+// InstagramStories plugin registration removed in favor of SocialSharing
 import { toPng } from "html-to-image";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -215,25 +211,36 @@ const MessageDetails = memo(({
 
             // 2. Platform Specific Handling
             if (Capacitor.isNativePlatform()) {
+                const ss = (window as any).plugins?.socialsharing;
+
                 if (platform === 'instagram') {
-                    // Native Instagram Story
-                    try {
-                        await InstagramStories.shareToStory({
-                            base64: dataUrl,
-                            attributionLink: "https://geogramapp.vercel.app"
-                        });
-                        console.log("Instagram share initiated");
-                    } catch (err: any) {
-                        console.error("Instagram Native Failed:", err);
+                    if (ss) {
+                        ss.shareViaInstagram(
+                            null, // message
+                            dataUrl, // image
+                            () => console.log("Instagram share success"),
+                            (err: any) => {
+                                console.error("Instagram share error:", err);
+                                genericShare(dataUrl!);
+                            }
+                        );
+                    } else {
+                        // Fallback to deep link if possible or system share
                         genericShare(dataUrl);
                     }
                 } else if (platform === 'whatsapp') {
-                    // Native WhatsApp (Action Send)
-                    try {
-                        await InstagramStories.shareToWhatsApp({ base64: dataUrl });
-                        console.log("WhatsApp share initiated");
-                    } catch (err: any) {
-                        console.error("WhatsApp Native Failed:", err);
+                    if (ss) {
+                        ss.shareViaWhatsApp(
+                            null, // message
+                            dataUrl, // image
+                            null, // link
+                            () => console.log("WhatsApp share success"),
+                            (err: any) => {
+                                console.error("WhatsApp share error:", err);
+                                genericShare(dataUrl!);
+                            }
+                        );
+                    } else {
                         genericShare(dataUrl);
                     }
                 } else {
