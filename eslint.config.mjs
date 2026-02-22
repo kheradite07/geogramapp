@@ -19,7 +19,9 @@ const eslintConfig = [
       "node_modules/**",
       "android/**",
       "ios/**",
-      "public/**"
+      "public/**",
+      "scripts/**",
+      "*.js"
     ],
   },
   {

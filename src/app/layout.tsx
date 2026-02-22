@@ -53,7 +53,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
+  const isMobileBuild = process.env.MOBILE_BUILD === 'true';
+  const session = isMobileBuild ? null : await auth();
   const isAdmin = session?.user?.isAdmin;
 
   return (

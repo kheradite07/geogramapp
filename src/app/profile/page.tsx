@@ -124,10 +124,9 @@ function ProfileContent() {
                             @{displayUser.username || (displayUser.name ? displayUser.name.replace(/\s+/g, '').toLowerCase() : "user")}
                         </p>
 
-                        {/* Bio Display */}
                         {displayUser.bio && (
                             <p className="text-gray-300 text-center mt-4 max-w-sm italic">
-                                "{displayUser.bio}"
+                                &quot;{displayUser.bio}&quot;
                             </p>
                         )}
 
