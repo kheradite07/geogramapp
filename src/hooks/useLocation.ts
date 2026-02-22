@@ -26,7 +26,7 @@ export function useLocation() {
 
                     // Request permissions first
                     const permission = await Geolocation.checkPermissions();
-                    if (permission.location === 'denied' || permission.location === 'prompt' || permission.location === 'prompt-with-description') {
+                    if (permission.location !== 'granted') {
                         await Geolocation.requestPermissions();
                     }
 
