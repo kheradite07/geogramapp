@@ -22,7 +22,7 @@ jobs:
       run: npm install
 
     - name: Build Web App
-      run: npm run build:mobile
+      run: npm run mobile:build
       env:
         MOBILE_BUILD: 'true'
         NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
