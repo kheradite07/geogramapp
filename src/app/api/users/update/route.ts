@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { mapUserSafe } from "@/lib/userStore";
 import { NextResponse } from "next/server";
 
 export async function PUT(req: Request) {
@@ -49,7 +50,7 @@ export async function PUT(req: Request) {
             data: updateData
         });
 
-        return NextResponse.json(user);
+        return NextResponse.json(mapUserSafe(user));
     } catch (error) {
         console.error("Error updating profile:", error);
         return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });

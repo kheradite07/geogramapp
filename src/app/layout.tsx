@@ -46,15 +46,20 @@ export const viewport = {
   themeColor: "#1a0033", // Brand Purple
 };
 
-export default function RootLayout({
+import { auth } from "@/auth";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  const isAdmin = session?.user?.isAdmin;
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}>
-        <SessionProvider>
+        <SessionProvider session={session}>
           <LocalizationProvider>
             <ConfigProvider>
               <UIProvider>
@@ -70,7 +75,7 @@ export default function RootLayout({
                   </div>
                 </LazyMotion>
 
-                <DebugPanel />
+                {isAdmin && <DebugPanel />}
                 <LoginModal />
                 <OnboardingModal />
                 <PushNotificationManager />

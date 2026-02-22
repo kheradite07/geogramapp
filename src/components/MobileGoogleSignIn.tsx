@@ -17,7 +17,7 @@ export default function MobileGoogleSignIn() {
         const checkPlatform = async () => {
             try {
                 const { Capacitor } = await import("@capacitor/core");
-                if (Capacitor.getPlatform() === 'android') {
+                if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') {
                     setIsNative(true);
                 }
             } catch (e) {

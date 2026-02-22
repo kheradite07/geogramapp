@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { mapMessage } from "@/lib/messages";
+import { isAdmin } from "@/lib/admin";
 
 export async function POST(
     request: Request,
@@ -44,21 +45,17 @@ export async function POST(
         let likes = message.likes || 0;
         let dislikes = message.dislikes || 0;
 
-        // Bypass checks if unlimited
-        if (unlimited === true) {
+        const isAdminUser = isAdmin(session.user.email);
+
+        // Unlimited mode for admins only
+        if (unlimited === true && isAdminUser) {
             if (action === 'like') {
                 likes++;
-                if (!likedBy.includes(userId)) {
-                    likedBy = [...likedBy, userId];
-                }
             } else {
                 dislikes++;
-                if (!dislikedBy.includes(userId)) {
-                    dislikedBy = [...dislikedBy, userId];
-                }
             }
         } else {
-            // Remove existing votes (Strict 1-vote mode)
+            // Enforce strict 1-vote mode for regular users
             const wasLiked = likedBy.includes(userId);
             const wasDisliked = dislikedBy.includes(userId);
 

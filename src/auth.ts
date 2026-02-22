@@ -5,6 +5,7 @@ import Google from "next-auth/providers/google"
 import Apple from "next-auth/providers/apple"
 import Credentials from "next-auth/providers/credentials"
 import { OAuth2Client } from "google-auth-library"
+import { isAdmin } from "@/lib/admin";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: PrismaAdapter(prisma),
@@ -185,9 +186,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (url.includes("localhost") || url.includes("127.0.0.1")) return url
             return baseUrl
         },
+        async jwt({ token, user }) {
+            if (user && user.email) {
+                token.isAdmin = isAdmin(user.email);
+            } else if (token.email) {
+                token.isAdmin = isAdmin(token.email);
+            }
+            return token;
+        },
         async session({ session, token }) {
-            if (session.user && token.sub) {
-                session.user.id = token.sub;
+            if (session.user) {
+                if (token.sub) {
+                    session.user.id = token.sub;
+                }
+                session.user.isAdmin = !!token.isAdmin;
             }
             return session;
         }

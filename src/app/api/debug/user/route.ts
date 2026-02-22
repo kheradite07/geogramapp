@@ -1,17 +1,17 @@
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
     try {
         const session = await auth();
-        if (!session || !session.user || !session.user.email) {
+        if (!session || !session.user || !isAdmin(session.user.email)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { action, value } = await request.json();
-        const userEmail = session.user.email;
+        const userEmail = session.user.email as string;
 
         const user = await prisma.user.findUnique({
             where: { email: userEmail }

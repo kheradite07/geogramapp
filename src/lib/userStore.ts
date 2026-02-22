@@ -158,6 +158,30 @@ export function mapPrismaUserToFrontendUser(prismaUser: UserWithRelations, viewi
     };
 }
 
+/**
+ * Strips sensitive data from a user object for safe transmission to the client.
+ * Use this for /api/users/me and /api/users/sync
+ */
+export function mapUserSafe(user: any) {
+    if (!user) return null;
+    return {
+        id: user.id,
+        name: user.name || "Unknown",
+        username: user.username || undefined,
+        fullName: user.fullName || undefined,
+        bio: user.bio || undefined,
+        image: user.image || undefined,
+        isOnboarded: user.isOnboarded || false,
+        isAnonymous: user.isAnonymous || false,
+        level: user.level || 1,
+        xp: user.xp || 0,
+        isPremium: user.isPremium || false,
+        activeBadgeId: user.activeBadgeId || undefined,
+        // We EXCLUDE lastLat, lastLng, and email from the general response 
+        // to prevent unintentional leaks. 
+    };
+}
+
 // Deprecated in-memory functions (kept as placeholders if needed during refactor, but should be removed)
 export const users: any[] = [];
 export const getUser = (id: string) => undefined;

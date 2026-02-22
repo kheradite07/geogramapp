@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { mapPrismaUserToFrontendUser } from "@/lib/userStore";
+import { mapUserSafe } from "@/lib/userStore";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             }
         });
 
-        return NextResponse.json(mapPrismaUserToFrontendUser(updatedUser));
+        return NextResponse.json(mapUserSafe(updatedUser));
     } catch (error) {
         console.error("Onboarding Error:", error);
         return NextResponse.json({ error: "Server Error" }, { status: 500 });

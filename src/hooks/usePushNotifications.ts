@@ -3,12 +3,23 @@
 import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
+import { useSession } from 'next-auth/react';
 
 export function usePushNotifications() {
+    const { data: session, status } = useSession();
+
     useEffect(() => {
         if (!Capacitor.isNativePlatform()) {
             return;
         }
+
+        // Only attempt to register if authenticated
+        if (status !== 'authenticated') {
+            console.log('PushNotifications: Waiting for authentication before registering...');
+            return;
+        }
+
+        console.log('PushNotifications: User authenticated, initiating registration sequence...');
 
         const registerPushNotifications = async () => {
             let permStatus = await PushNotifications.checkPermissions();
@@ -76,5 +87,5 @@ export function usePushNotifications() {
         // However, PushNotifications.removeAllListeners() removes ALL, checking context is important.
         // For a top-level hook, we might just leave them or handle cleanup carefully.
 
-    }, []);
+    }, [status]);
 }
