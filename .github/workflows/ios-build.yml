@@ -32,8 +32,8 @@ jobs:
     - name: Capacitor Sync
       run: npx cap sync ios
 
-    - name: Tar iOS Project
-      run: tar -czf ios-build.tar.gz ios/
+    - name: Tar iOS Project with Plugin Sources
+      run: tar -czf ios-build.tar.gz ios/ node_modules/@capacitor/ node_modules/@codetrix-studio/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
