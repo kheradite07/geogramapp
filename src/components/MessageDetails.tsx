@@ -430,7 +430,7 @@ const MessageDetails = memo(({
                     {/* Message Body */}
                     <div className="bg-white/5 rounded-xl p-3 border border-white/5">
                         <p className="text-white text-sm leading-relaxed font-medium">
-                            "{message.text}"
+                            &quot;{message.text}&quot;
                         </p>
                     </div>
 
