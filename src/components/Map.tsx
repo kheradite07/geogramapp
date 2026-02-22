@@ -1821,7 +1821,7 @@ export default function MapComponent() {
             {/* Search Bar Overlay - Top Right */}
             <div
                 ref={searchRef}
-                className={`fixed top-4 right-4 z-50 transition-[width,height,opacity] duration-300 ease-in-out ${isSearchOpen ? 'w-[calc(100vw-32px)] sm:w-[320px]' : 'w-12 h-12'
+                className={`fixed top-[calc(1rem+env(safe-area-inset-top))] right-4 z-50 transition-[width,height,opacity] duration-300 ease-in-out ${isSearchOpen ? 'w-[calc(100vw-32px)] sm:w-[320px]' : 'w-12 h-12'
                     }`}
             >
                 <div className="relative group flex justify-end">
@@ -2589,7 +2589,7 @@ export default function MapComponent() {
 
             {
                 locationError && (
-                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded shadow-md z-10 text-xs">
+                    <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-4 bg-red-500 text-white px-3 py-1 rounded shadow-md z-10 text-xs">
                         Location Error: {locationError.message}
                     </div>
                 )

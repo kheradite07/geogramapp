@@ -23,7 +23,7 @@ export default function MapLayers({ currentFilter, onFilterChange, isOpen, onTog
 
     return (
         <motion.div
-            className="absolute top-24 left-4 z-[100] flex flex-col items-center bg-[#1a0033]/90 backdrop-blur-xl border border-white/20 shadow-xl overflow-hidden pointer-events-auto"
+            className="absolute top-[calc(6rem+env(safe-area-inset-top))] left-4 z-[100] flex flex-col items-center bg-[#1a0033]/90 backdrop-blur-xl border border-white/20 shadow-xl overflow-hidden pointer-events-auto"
             initial={false}
             animate={{
                 width: 44, // Fixed width
