@@ -21,63 +21,61 @@ export function useLocation() {
 
         const requestLocation = async () => {
             try {
-                if (Capacitor.isNativePlatform()) {
-                    const { Geolocation } = await import("@capacitor/geolocation");
-
-                    // Request permissions first
-                    const permission = await Geolocation.checkPermissions();
-                    if (permission.location !== 'granted') {
-                        await Geolocation.requestPermissions();
-                    }
-
-                    const position = await Geolocation.getCurrentPosition({
-                        enableHighAccuracy: true,
-                        timeout: 10000
-                    });
-
-                    if (isMounted) {
-                        setState({
-                            location: {
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude,
-                            },
-                            error: null,
-                            loading: false,
-                        });
-                    }
-                } else {
-                    // Web Fallback
-                    if (!navigator.geolocation) {
-                        throw new Error("Geolocation not supported");
-                    }
-
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            if (isMounted) {
-                                setState({
-                                    location: {
-                                        lat: position.coords.latitude,
-                                        lng: position.coords.longitude,
-                                    },
-                                    error: null,
-                                    loading: false,
-                                });
-                            }
-                        },
-                        (error) => {
-                            if (isMounted) {
-                                setState((s) => ({ ...s, error, loading: false }));
-                            }
-                        },
-                        { enableHighAccuracy: true, timeout: 10000 }
-                    );
+                if (!navigator.geolocation) {
+                    throw new Error("Geolocation not supported by this browser.");
                 }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        if (isMounted) {
+                            setState({
+                                location: {
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude,
+                                },
+                                error: null,
+                                loading: false,
+                            });
+                        }
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                        // Fallback to coarse location if high accuracy fails
+                        if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+                            navigator.geolocation.getCurrentPosition(
+                                (fallbackPos) => {
+                                    if (isMounted) {
+                                        setState({
+                                            location: {
+                                                lat: fallbackPos.coords.latitude,
+                                                lng: fallbackPos.coords.longitude,
+                                            },
+                                            error: null,
+                                            loading: false,
+                                        });
+                                    }
+                                },
+                                (fallbackErr) => {
+                                    if (isMounted) {
+                                        setState((s) => ({ ...s, error: fallbackErr.message || "Location error", loading: false }));
+                                    }
+                                },
+                                { enableHighAccuracy: false, maximumAge: 300000, timeout: 15000 }
+                            );
+                        } else {
+                            if (isMounted) {
+                                setState((s) => ({ ...s, error: error.message || "Location error", loading: false }));
+                            }
+                        }
+                    },
+                    { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+                );
             } catch (error: any) {
-                console.error("Location error:", error);
+                console.error("Location exception:", error);
                 if (isMounted) {
                     setState((s) => ({
                         ...s,
-                        error: error.message || "Location error",
+                        error: error.message || "Location exception",
                         loading: false
                     }));
                 }
