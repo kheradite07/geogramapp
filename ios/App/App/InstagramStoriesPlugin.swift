@@ -4,6 +4,9 @@ import UIKit
 
 @objc(InstagramStoriesPlugin)
 public class InstagramStoriesPlugin: CAPPlugin {
+    
+    // Retain the document controller so it doesn't get deallocated instantly
+    var documentController: UIDocumentInteractionController?
 
     @objc func shareToStory(_ call: CAPPluginCall) {
         guard let base64String = call.getString("base64") else {
@@ -12,7 +15,8 @@ public class InstagramStoriesPlugin: CAPPlugin {
         }
 
         let cleanBase64 = base64String.components(separatedBy: ",").last ?? base64String
-        guard let imageData = Data(base64Encoded: cleanBase64) else {
+        // Add ignoreUnknownCharacters to prevent line-break failures
+        guard let imageData = Data(base64Encoded: cleanBase64, options: .ignoreUnknownCharacters) else {
             call.reject("Invalid base64 image data")
             return
         }
@@ -40,7 +44,7 @@ public class InstagramStoriesPlugin: CAPPlugin {
                     }
                 }
             } else {
-                call.reject("Instagram is not installed")
+                call.reject("Instagram is not installed or LSApplicationQueriesSchemes is missing.")
             }
         }
     }
@@ -52,7 +56,7 @@ public class InstagramStoriesPlugin: CAPPlugin {
         }
 
         let cleanBase64 = base64String.components(separatedBy: ",").last ?? base64String
-        guard let imageData = Data(base64Encoded: cleanBase64) else {
+        guard let imageData = Data(base64Encoded: cleanBase64, options: .ignoreUnknownCharacters) else {
             call.reject("Invalid base64 image data")
             return
         }
@@ -67,11 +71,11 @@ public class InstagramStoriesPlugin: CAPPlugin {
                 do {
                     try imageData.write(to: fileURL)
 
-                    let docController = UIDocumentInteractionController(url: fileURL)
-                    docController.uti = "net.whatsapp.image"
+                    self.documentController = UIDocumentInteractionController(url: fileURL)
+                    self.documentController?.uti = "net.whatsapp.image"
 
                     if let vc = self.bridge?.viewController {
-                        let presented = docController.presentOpenInMenu(from: vc.view.bounds, in: vc.view, animated: true)
+                        let presented = self.documentController?.presentOpenInMenu(from: vc.view.bounds, in: vc.view, animated: true) ?? false
                         if presented {
                             call.resolve()
                         } else {
@@ -84,7 +88,7 @@ public class InstagramStoriesPlugin: CAPPlugin {
                     call.reject("Failed to save image for WhatsApp: \(error.localizedDescription)")
                 }
             } else {
-                 call.reject("WhatsApp is not installed")
+                 call.reject("WhatsApp is not installed or LSApplicationQueriesSchemes is missing.")
             }
         }
     }
